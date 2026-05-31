@@ -74,17 +74,25 @@ export function Composer() {
     '3.5 Flash': 'gemini-3.5-flash',
   }
   const [selectedModel, setSelectedModel] = useState('gemini-3-flash-preview')
+  const [apiUrl, setApiUrl] = useState(() => {
+    const stored = localStorage.getItem('CYBERNETICS_API_URL')
+    if (stored) return stored.replace(/\/$/, '')
+    if (window.location.hostname.endsWith('github.io')) {
+      return 'https://cybernetics-broker-strawberry.a.run.app' // Smart default fallback for GitHub Pages
+    }
+    return '' // Relative path for embedded server
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
   const aiDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch('/api/templates')
+    fetch(`${apiUrl}/api/templates`)
       .then(r => r.json())
       .then((data: { templates: Template[]; adapters: string[] }) => {
         setTemplates(data.templates)
         setAllAdapters(data.adapters)
       })
-  }, [])
+  }, [apiUrl])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -119,7 +127,7 @@ export function Composer() {
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role, content: m.content }))
 
-      const r = await fetch('/api/chat', {
+      const r = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +204,7 @@ export function Composer() {
   async function handleCompose(customPrompt?: string) {
     setIsTyping(true)
     try {
-      const r = await fetch('/api/compose', {
+      const r = await fetch(`${apiUrl}/api/compose`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -224,7 +232,7 @@ export function Composer() {
   async function handleDeploy(projectId: string, region: string, serviceName: string) {
     setIsTyping(true)
     try {
-      const r = await fetch('/api/deploy', {
+      const r = await fetch(`${apiUrl}/api/deploy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -664,6 +672,19 @@ export function Composer() {
                   className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">Used for /api/chat and /api/compose endpoints</p>
+                
+                <label className="text-xs text-slate-400 block mb-1 mt-3">API Backend URL</label>
+                <input
+                  type="text"
+                  value={apiUrl}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setApiUrl(e.target.value)
+                    localStorage.setItem('CYBERNETICS_API_URL', e.target.value)
+                  }}
+                  placeholder="e.g. http://localhost:3001 or Cloud Run URL"
+                  className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">URL of your hosted Go Composer API backend</p>
               </div>
             )}
           </div>

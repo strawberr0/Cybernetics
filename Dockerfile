@@ -9,12 +9,13 @@ RUN npm run build
 # Stage 2: Build Backend (Go)
 FROM golang:1.22-alpine AS backend-builder
 WORKDIR /app
-COPY backend/go.* ./
-RUN go mod download
-COPY backend/ ./
+COPY go.mod ./
+RUN go mod download || true
+COPY cmd/ ./cmd
+COPY cybernetics/ ./cybernetics
 # Embed frontend assets from stage 1 into the Go binary's directory
 COPY --from=frontend-builder /app/frontend/dist ./static
-RUN CGO_ENABLED=0 GOOS=linux go build -o cybernetics-server
+RUN CGO_ENABLED=0 GOOS=linux go build -o cybernetics-server ./cmd/composer/main.go
 
 # Stage 3: Final Production Image (Minimal)
 FROM alpine:latest
