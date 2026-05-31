@@ -4,6 +4,7 @@ import httpx
 from typing import Dict, Any
 from cybernetics.adapters.base import MCPAdapter, ToolResult
 from cybernetics.config.settings import settings
+from cybernetics.circuit.breaker import circuit
 from cybernetics.logging.logger import get_logger
 
 logger = get_logger("cybernetics.adapters.slack")
@@ -82,6 +83,7 @@ class SlackAdapter(MCPAdapter):
             self._get_user_info,
         )
 
+    @circuit("slack", failure_threshold=5, recovery_timeout=60)
     async def _post_message(self, channel: str, text: str, thread_ts: str = ""):
         payload = {"channel": channel, "text": text}
         if thread_ts:
@@ -92,6 +94,7 @@ class SlackAdapter(MCPAdapter):
             raise RuntimeError(data.get("error", "Slack API error"))
         return {"ts": data["message"]["ts"], "channel": data["channel"]}
 
+    @circuit("slack", failure_threshold=5, recovery_timeout=60)
     async def _get_channel_history(self, channel: str, limit: int = 20):
         r = await self._client.get("/conversations.history", params={"channel": channel, "limit": limit})
         data = r.json()
@@ -99,6 +102,7 @@ class SlackAdapter(MCPAdapter):
             raise RuntimeError(data.get("error"))
         return {"messages": data.get("messages", [])}
 
+    @circuit("slack", failure_threshold=5, recovery_timeout=60)
     async def _list_channels(self, limit: int = 100):
         r = await self._client.get("/conversations.list", params={"limit": limit, "types": "public_channel,private_channel"})
         data = r.json()
@@ -106,6 +110,7 @@ class SlackAdapter(MCPAdapter):
             raise RuntimeError(data.get("error"))
         return {"channels": [{"id": c["id"], "name": c["name"]} for c in data.get("channels", [])]}
 
+    @circuit("slack", failure_threshold=5, recovery_timeout=60)
     async def _search_messages(self, query: str, count: int = 20):
         r = await self._client.get("/search.messages", params={"query": query, "count": count})
         data = r.json()
@@ -114,6 +119,7 @@ class SlackAdapter(MCPAdapter):
         matches = data.get("messages", {}).get("matches", [])
         return {"matches": [{"text": m["text"], "channel": m["channel"]["name"], "ts": m["ts"]} for m in matches]}
 
+    @circuit("slack", failure_threshold=5, recovery_timeout=60)
     async def _upload_file(self, channel: str, content: str, filename: str, title: str = ""):
         r = await self._client.post(
             "/files.upload",
@@ -125,6 +131,7 @@ class SlackAdapter(MCPAdapter):
             raise RuntimeError(data.get("error"))
         return {"file_id": data["file"]["id"], "url": data["file"].get("url_private", "")}
 
+    @circuit("slack", failure_threshold=5, recovery_timeout=60)
     async def _get_user_info(self, user: str):
         if "@" in user:
             r = await self._client.get("/users.lookupByEmail", params={"email": user})

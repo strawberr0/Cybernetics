@@ -19,8 +19,13 @@ class MockServer:
         self.thread = None
 
     def start(self):
-        os.chdir(self.directory)
-        self.httpd = socketserver.TCPServer(("", self.port), self.handler)
+        class ReuseAddrHandler(self.handler):
+            def __init__(hself, *args, **kwargs):
+                super().__init__(*args, directory=self.directory, **kwargs)
+        self.httpd = socketserver.TCPServer(("", self.port), ReuseAddrHandler, bind_and_activate=False)
+        self.httpd.socket.setsockopt(socketserver.socket.SOL_SOCKET, socketserver.socket.SO_REUSEADDR, 1)
+        self.httpd.server_bind()
+        self.httpd.server_activate()
         self.thread = threading.Thread(target=self.httpd.serve_forever)
         self.thread.daemon = True
         self.thread.start()
@@ -36,7 +41,7 @@ async def test_composer_flow():
     # We must ensure we are in the right directory or use a handler that knows the path
     # For simplicity, we'll just start it from the dist dir
     original_cwd = os.getcwd()
-    server = MockServer(FRONTEND_DIST, port=8001)
+    server = MockServer(FRONTEND_DIST, port=8002)
     server.start()
     
     try:
@@ -70,7 +75,7 @@ async def test_composer_flow():
             ))
 
             # Navigate to the frontend
-            await page.goto("http://localhost:8001")
+            await page.goto("http://localhost:8002")
 
             # Check if we are on the composer page
             await page.wait_for_selector("text=Agent Composer")

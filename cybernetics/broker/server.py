@@ -10,54 +10,12 @@ import asyncio
 from cybernetics.config.settings import settings
 from cybernetics.logging.logger import configure_logging, get_logger
 from cybernetics.auth.middleware import APIKeyAuth, require_api_key
-from cybernetics.registry.manager import Registry, register_adapter
+from cybernetics.registry.manager import Registry, auto_discover
 from cybernetics.health.checks import registry as health_registry, HealthCheck, HealthStatus
 from cybernetics.circuit.breaker import get_breaker, _breakers
 
-# Import all adapters so they auto-register
-from cybernetics.adapters.dynatrace import DynatraceAdapter
-from cybernetics.adapters.elastic import ElasticAdapter
-from cybernetics.adapters.postgres import PostgresAdapter
-from cybernetics.adapters.gitlab import GitLabAdapter
-from cybernetics.adapters.arize import ArizeAdapter
-from cybernetics.adapters.fivetran import FivetranAdapter
-from cybernetics.adapters.github import GitHubAdapter
-from cybernetics.adapters.stripe import StripeAdapter
-from cybernetics.adapters.aws import AWSAdapter
-from cybernetics.adapters.vercel import VercelAdapter
-from cybernetics.adapters.supabase import SupabaseAdapter
-from cybernetics.adapters.cloudflare import CloudflareAdapter
-from cybernetics.adapters.browser import BrowserAdapter
-from cybernetics.adapters.chrome import ChromeAdapter
-from cybernetics.adapters.firefox import FirefoxAdapter
-from cybernetics.adapters.brave import BraveAdapter
-from cybernetics.adapters.slack import SlackAdapter
-from cybernetics.adapters.kubernetes import KubernetesAdapter
-from cybernetics.adapters.datadog import DatadogAdapter
-from cybernetics.adapters.notion import NotionAdapter
-from cybernetics.adapters.linear import LinearAdapter
-
-register_adapter("dynatrace", DynatraceAdapter)
-register_adapter("elastic", ElasticAdapter)
-register_adapter("postgres", PostgresAdapter)
-register_adapter("gitlab", GitLabAdapter)
-register_adapter("arize", ArizeAdapter)
-register_adapter("fivetran", FivetranAdapter)
-register_adapter("github", GitHubAdapter)
-register_adapter("stripe", StripeAdapter)
-register_adapter("aws", AWSAdapter)
-register_adapter("vercel", VercelAdapter)
-register_adapter("supabase", SupabaseAdapter)
-register_adapter("cloudflare", CloudflareAdapter)
-register_adapter("browser", BrowserAdapter)
-register_adapter("chrome", ChromeAdapter)
-register_adapter("firefox", FirefoxAdapter)
-register_adapter("brave", BraveAdapter)
-register_adapter("slack", SlackAdapter)
-register_adapter("kubernetes", KubernetesAdapter)
-register_adapter("datadog", DatadogAdapter)
-register_adapter("notion", NotionAdapter)
-register_adapter("linear", LinearAdapter)
+# Auto-discover and register all adapters from cybernetics/adapters/
+auto_discover()
 
 logger = get_logger("cybernetics.broker")
 bearer = HTTPBearer()

@@ -3,6 +3,7 @@
 from typing import Dict, Any, List
 from cybernetics.adapters.base import MCPAdapter
 from cybernetics.config.settings import settings
+from cybernetics.circuit.breaker import circuit
 from cybernetics.logging.logger import get_logger
 
 logger = get_logger("cybernetics.adapters.kubernetes")
@@ -103,6 +104,7 @@ class KubernetesAdapter(MCPAdapter):
         except ImportError:
             return None, None
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _list_pods(self, namespace: str = "", label_selector: str = ""):
         core, _ = self._k8s_client()
         if not core:
@@ -111,6 +113,7 @@ class KubernetesAdapter(MCPAdapter):
         pods = core.list_namespaced_pod(namespace=ns, label_selector=label_selector or None)
         return {"pods": [{"name": p.metadata.name, "status": p.status.phase, "ip": p.status.pod_ip} for p in pods.items]}
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _get_pod_logs(self, name: str, namespace: str = "", container: str = "", tail: int = 100):
         core, _ = self._k8s_client()
         if not core:
@@ -122,6 +125,7 @@ class KubernetesAdapter(MCPAdapter):
         logs = core.read_namespaced_pod_log(**kwargs)
         return {"pod": name, "logs": logs}
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _describe_pod(self, name: str, namespace: str = ""):
         core, _ = self._k8s_client()
         if not core:
@@ -136,6 +140,7 @@ class KubernetesAdapter(MCPAdapter):
             "events": [{"reason": e.reason, "message": e.message, "type": e.type} for e in events.items],
         }
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _scale_deployment(self, name: str, replicas: int, namespace: str = ""):
         _, apps = self._k8s_client()
         if not apps:
@@ -145,6 +150,7 @@ class KubernetesAdapter(MCPAdapter):
         apps.patch_namespaced_deployment_scale(name=name, namespace=ns, body=patch)
         return {"deployment": name, "replicas": replicas}
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _restart_deployment(self, name: str, namespace: str = ""):
         _, apps = self._k8s_client()
         if not apps:
@@ -164,6 +170,7 @@ class KubernetesAdapter(MCPAdapter):
         apps.patch_namespaced_deployment(name=name, namespace=ns, body=patch)
         return {"deployment": name, "restarted": True}
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _list_deployments(self, namespace: str = ""):
         _, apps = self._k8s_client()
         if not apps:
@@ -172,6 +179,7 @@ class KubernetesAdapter(MCPAdapter):
         deps = apps.list_namespaced_deployment(namespace=ns)
         return {"deployments": [{"name": d.metadata.name, "replicas": d.spec.replicas, "available": d.status.available_replicas} for d in deps.items]}
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _list_services(self, namespace: str = ""):
         core, _ = self._k8s_client()
         if not core:
@@ -180,6 +188,7 @@ class KubernetesAdapter(MCPAdapter):
         svcs = core.list_namespaced_service(namespace=ns)
         return {"services": [{"name": s.metadata.name, "cluster_ip": s.spec.cluster_ip, "ports": [{"port": p.port, "protocol": p.protocol} for p in (s.spec.ports or [])]} for s in svcs.items]}
 
+    @circuit("kubernetes", failure_threshold=5, recovery_timeout=60)
     async def _exec_command(self, name: str, command: List[str], namespace: str = ""):
         core, _ = self._k8s_client()
         if not core:

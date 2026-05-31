@@ -16,10 +16,9 @@ class ElasticAdapter(MCPAdapter):
 
     def __init__(self):
         super().__init__()
-        self.client = AsyncElasticsearch(
-            cloud_id=settings.elastic_cloud_id,
-            api_key=settings.elastic_api_key,
-        )
+        self._cloud_id = settings.elastic_cloud_id
+        self._api_key = settings.elastic_api_key
+        self._client: AsyncElasticsearch | None = None
         self.register_tool(
             "elastic_search_incidents",
             "Search incident history",
@@ -42,6 +41,14 @@ class ElasticAdapter(MCPAdapter):
             self._write_insight,
         )
 
+    def _get_client(self):
+        if self._client is None:
+            self._client = AsyncElasticsearch(
+                cloud_id=self._cloud_id,
+                api_key=self._api_key,
+            )
+        return self._client
+
     @circuit("elastic", failure_threshold=5, recovery_timeout=60)
     async def _search_incidents(self, query: str, index: str = "sentinel-incidents", size: int = 10) -> List[Dict[str, Any]]:
         body = {
@@ -54,27 +61,30 @@ class ElasticAdapter(MCPAdapter):
             },
             "size": size,
         }
-        resp = await self.client.search(index=index, body=body)
+        resp = await self._get_client().search(index=index, body=body)
         return [hit["_source"] for hit in resp["hits"]["hits"]]
 
     @circuit("elastic", failure_threshold=5, recovery_timeout=60)
     async def _search_runbooks(self, symptom: str, index: str = "sentinel-runbooks", size: int = 5) -> List[Dict[str, Any]]:
         body = {"query": {"match": {"symptoms": symptom}}, "size": size}
-        resp = await self.client.search(index=index, body=body)
+        resp = await self._get_client().search(index=index, body=body)
         return [hit["_source"] for hit in resp["hits"]["hits"]]
 
     @circuit("elastic", failure_threshold=5, recovery_timeout=60)
     async def _write_insight(self, incident_id: str, insight: str, index: str = "sentinel-incidents") -> None:
-        await self.client.update(
+        await self._get_client().update(
             index=index, id=incident_id, body={"doc": {"agent_insight": insight, "enriched": True}}
         )
 
     async def health(self) -> Dict[str, Any]:
+        if not self._cloud_id or not self._api_key:
+            return {"status": "unhealthy", "error": "ELASTIC_CLOUD_ID or ELASTIC_API_KEY not set"}
         try:
-            ok = await self.client.ping()
+            ok = await self._get_client().ping()
             return {"status": "healthy" if ok else "degraded"}
         except Exception as exc:
             return {"status": "unhealthy", "error": str(exc)}
 
     async def close(self) -> None:
-        await self.client.close()
+        if self._client:
+            await self._client.close()

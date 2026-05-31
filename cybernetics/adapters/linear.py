@@ -3,6 +3,7 @@ import httpx
 from typing import Dict, Any, List
 from cybernetics.adapters.base import MCPAdapter
 from cybernetics.config.settings import settings
+from cybernetics.circuit.breaker import circuit
 from cybernetics.logging.logger import get_logger
 
 logger = get_logger("cybernetics.adapters.linear")
@@ -23,8 +24,6 @@ class LinearAdapter(MCPAdapter):
             },
             timeout=httpx.Timeout(30.0),
         )
-        self._setup_tools()
-
         self.register_tool(
             "linear_create_issue",
             "Create a Linear issue",
@@ -94,6 +93,7 @@ class LinearAdapter(MCPAdapter):
             raise RuntimeError(data["errors"][0]["message"])
         return data["data"]
 
+    @circuit("linear", failure_threshold=5, recovery_timeout=60)
     async def _create_issue(self, team_id: str, title: str, description: str = "", state_id: str = "", label_ids: list = None):
         q = """
         mutation CreateIssue($input: IssueCreateInput!) {
@@ -107,6 +107,7 @@ class LinearAdapter(MCPAdapter):
         data = await self._graphql(q, {"input": inp})
         return data["issueCreate"]["issue"]
 
+    @circuit("linear", failure_threshold=5, recovery_timeout=60)
     async def _list_issues(self, team_id: str = "", state: str = "", assignee_id: str = "", limit: int = 50):
         filters = []
         if team_id:
@@ -125,6 +126,7 @@ class LinearAdapter(MCPAdapter):
         data = await self._graphql(q)
         return {"issues": data["issues"]["nodes"]}
 
+    @circuit("linear", failure_threshold=5, recovery_timeout=60)
     async def _update_issue(self, issue_id: str, state_id: str = "", assignee_id: str = "", title: str = ""):
         q = """
         mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) {
@@ -140,11 +142,13 @@ class LinearAdapter(MCPAdapter):
         data = await self._graphql(q, {"id": issue_id, "input": inp})
         return data["issueUpdate"]["issue"]
 
+    @circuit("linear", failure_threshold=5, recovery_timeout=60)
     async def _get_teams(self):
         q = "query { teams { nodes { id name key } } }"
         data = await self._graphql(q)
         return {"teams": data["teams"]["nodes"]}
 
+    @circuit("linear", failure_threshold=5, recovery_timeout=60)
     async def _search_issues(self, query: str, limit: int = 20):
         q = f"""
         query {{
@@ -155,6 +159,7 @@ class LinearAdapter(MCPAdapter):
         data = await self._graphql(q)
         return {"issues": data["issues"]["nodes"]}
 
+    @circuit("linear", failure_threshold=5, recovery_timeout=60)
     async def _create_comment(self, issue_id: str, body: str):
         q = """
         mutation CreateComment($input: CommentCreateInput!) {

@@ -1,6 +1,6 @@
 """MongoDB adapter — async via motor."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 from cybernetics.adapters.base import MCPAdapter
@@ -61,7 +61,7 @@ class MongoDBAdapter(MCPAdapter):
                     "diagnosis": diagnosis,
                     "action": action,
                     "outcome": outcome,
-                    "last_seen": datetime.utcnow(),
+                    "last_seen": datetime.now(timezone.utc),
                 },
                 "$inc": {"occurrence_count": 1},
             },
@@ -70,7 +70,7 @@ class MongoDBAdapter(MCPAdapter):
 
     @circuit("mongodb", failure_threshold=5, recovery_timeout=60)
     async def _log_incident(self, incident: Dict[str, Any]) -> str:
-        incident["created_at"] = datetime.utcnow()
+        incident["created_at"] = datetime.now(timezone.utc)
         result = await self.db["incidents"].insert_one(incident)
         return str(result.inserted_id)
 
