@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Composable Meta-MCP for Google Cloud Agents</strong><br/>
-  <sub>v0.1.1  •  57 Adapters  •  200+ Tools  •  Agent Composer  •  A2A/ERC-8004 Ready</sub>
+  <sub>v0.1.1  •  58 Adapters  •  153+ Tools  •  Agent Composer  •  A2A/ERC-8004 Ready</sub>
 </p>
 
 <p align="center">
@@ -108,7 +108,7 @@ Cybernetics is a **composable Model Context Protocol (MCP) meta-broker** designe
 1. **Request** → Cloud Run → `APIKeyAuth` middleware validates Bearer token
 2. **Routing** → FastAPI dispatches to `/mcp/invoke`, `/mcp/tools`, or `/mcp/sse`
 3. **Sentinel Pipeline** → `Auditor.before()` logs call, `Guard.before()` blocks sensitive keys
-4. **Registry** → Loads adapter from `ADAPTER_MAP`, executes tool via circuit breaker
+4. **Registry** → `auto_discover()` scans `cybernetics/adapters/` and registers all concrete `MCPAdapter` subclasses dynamically; executes tool via circuit breaker
 5. **Adapter** → Async HTTP/SQL client calls downstream MCP server
 6. **Response** → `Auditor.after()` logs result, circuit breaker state updated
 
@@ -265,7 +265,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 
 ---
 
-## 5. Adapter Catalog (57 Adapters, 200+ Tools)
+## 5. Adapter Catalog (58 Adapters, 153+ Tools)
 
 ### Non-Google Adapters
 
@@ -274,9 +274,9 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 | `airtable` | REST | `Bearer` | airtable | `airtable_list_bases`, `airtable_get_base`, `airtable_create_record` |
 | `arize` | REST | `Bearer` | arize | `arize_run_judge` (Gemini), `arize_log_eval` |
 | `asana` | REST | `Bearer` | asana | `asana_list_projects`, `asana_get_task`, `asana_create_task` |
-| `aws` | boto3 | IAM / keys | aws | `aws_s3_list_buckets`, `aws_ec2_describe`, `aws_lambda_invoke`, `aws_cloudwatch_metrics` |
+| `aws` | boto3 | IAM / keys | aws | `aws_s3_list_buckets`, `aws_s3_list_objects`, `aws_ec2_describe_instances`, `aws_lambda_list_functions`, `aws_lambda_invoke`, `aws_cloudwatch_get_metrics` |
 | `brave` | Playwright | N/A | brave | `brave_navigate`, `brave_evaluate`, `brave_screenshot`, `brave_click`, `brave_type`, `brave_set_viewport`, `brave_pdf`, `brave_check_shields` |
-| `browser` | WebSocket CDP | N/A | browser | `browser_navigate`, `browser_evaluate`, `browser_screenshot`, `browser_get_network`, `browser_get_console`, `browser_clear_cache` |
+| `browser` | WebSocket CDP | N/A | browser | `browser_navigate`, `browser_evaluate`, `browser_screenshot`, `browser_get_network_log`, `browser_get_console_log`, `browser_clear_cache` |
 | `chrome` | WebSocket CDP | N/A | chrome | `chrome_navigate`, `chrome_evaluate`, `chrome_screenshot`, `chrome_get_network`, `chrome_get_console`, `chrome_clear_cache`, `chrome_set_viewport`, `chrome_click`, `chrome_type`, `chrome_pdf` |
 | `cloudflare` | REST | `Bearer` | cloudflare | `cloudflare_list_zones`, `cloudflare_list_dns`, `cloudflare_create_dns`, `cloudflare_list_workers`, `cloudflare_deploy_worker` |
 | `confluence` | REST | `Api-Token` | confluence | `confluence_search_pages`, `confluence_get_page`, `confluence_create_page` |
@@ -284,18 +284,18 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 | `docker` | REST / socket | N/A | docker | `docker_list_containers`, `docker_run`, `docker_build`, `docker_logs` |
 | `dynatrace` | REST | `Api-Token` | dynatrace | `dynatrace_get_problems`, `dynatrace_get_traces`, `dynatrace_run_dql` |
 | `elastic` | REST | `ApiKey` | elastic | `elastic_search_incidents`, `elastic_search_runbooks`, `elastic_write_insight` |
-| `fivetran` | REST | Basic | fivetran | `fivetran_list_connectors`, `fivetran_get_status`, `fivetran_sync`, `fivetran_create_pipeline` |
+| `fivetran` | REST | Basic | fivetran | `fivetran_list_connectors`, `fivetran_get_connector_status`, `fivetran_sync_connector`, `fivetran_create_log_pipeline` |
 | `firefox` | Playwright | N/A | firefox | `firefox_navigate`, `firefox_evaluate`, `firefox_screenshot`, `firefox_get_console`, `firefox_click`, `firefox_type`, `firefox_set_viewport`, `firefox_pdf` |
-| `github` | REST | `token` | github | `github_create_issue`, `github_create_pr`, `github_list_repos`, `github_trigger_workflow`, `github_search_code` |
+| `github` | REST | `token` | github | `github_create_issue`, `github_get_issue`, `github_create_pr`, `github_list_repos`, `github_trigger_workflow`, `github_search_code` |
 | `gitlab` | REST | `PRIVATE-TOKEN` | gitlab | `gitlab_create_issue`, `gitlab_create_mr`, `gitlab_get_file`, `gitlab_trigger_pipeline` |
 | `jira` | REST | `Api-Token` | jira | `jira_create_issue`, `jira_search_issues`, `jira_get_sprint`, `jira_transition_issue` |
-| `kubernetes` | REST | `KUBECONFIG` | kubernetes | `kubernetes_list_pods`, `kubernetes_get_deployment`, `kubernetes_create_service` |
+| `kubernetes` | REST | `KUBECONFIG` | kubernetes | `k8s_list_pods`, `k8s_get_pod_logs`, `k8s_describe_pod`, `k8s_scale_deployment`, `k8s_restart_deployment`, `k8s_list_deployments`, `k8s_list_services` |
 | `linear` | GraphQL | `Bearer` | linear | `linear_create_issue`, `linear_list_issues`, `linear_update_issue`, `linear_get_teams`, `linear_search_issues`, `linear_create_comment` |
 | `mongodb` | TCP | URI | mongodb | `mongodb_find`, `mongodb_insert`, `mongodb_aggregate`, `mongodb_index` |
 | `n8n` | REST | `Api-Key` | n8n | `n8n_list_workflows`, `n8n_trigger`, `n8n_get_execution` |
 | `notion` | REST | `Bearer` | notion | `notion_search`, `notion_get_page`, `notion_create_page`, `notion_query_database`, `notion_update_page`, `notion_get_database` |
 | `pagerduty` | REST | `Token` | pagerduty | `pagerduty_list_incidents`, `pagerduty_acknowledge`, `pagerduty_get_oncall` |
-| `postgres` | TCP | DSN | postgres | `postgres_recall_pattern`, `postgres_store_pattern`, `postgres_log_incident` |
+| `postgres` | TCP | DSN | postgres | `postgres_recall_pattern`, `postgres_store_pattern`, `postgres_log_incident`, `postgres_get_recent_incidents` |
 | `quickbooks` | REST | OAuth | quickbooks | `qb_list_customers`, `qb_get_customer`, `qb_create_invoice`, `qb_list_invoices`, `qb_get_report` |
 | `redis` | TCP | URI | redis | `redis_get`, `redis_set`, `redis_publish`, `redis_stream_read` |
 | `shopify` | REST | `Access-Token` | shopify | `shopify_list_products`, `shopify_get_order`, `shopify_create_draft`, `shopify_update_inventory` |
@@ -305,7 +305,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 | `supabase` | REST | `apikey` | supabase | `supabase_select`, `supabase_insert`, `supabase_update`, `supabase_delete`, `supabase_rpc` |
 | `vercel` | REST | `Bearer` | vercel | `vercel_list_projects`, `vercel_get_deployment`, `vercel_list_deployments`, `vercel_add_env_var` |
 
-### Google MCP Hub (24 Servers)
+### Google MCP Hub (25 Servers)
 
 | Adapter | Source |
 |---|---|
@@ -706,7 +706,7 @@ cd frontend && npm install && npm run dev
 
 **Workflow:**
 1. **Pick Template** — Choose from 18 agent templates (Sentinel, Deploy, Finance, Infra, Security, Data, Ops, Content, Commerce, Analytics, Google Workspace, Atlassian, Browser QA, CRM, Shopify, Database Ops, SRE Observability, Infrastructure)
-2. **Select Adapters** — Toggle any of the 57 MCP adapters
+2. **Select Adapters** — Toggle any of the 58 MCP adapters
 3. **Configure Keys** — Enter API keys for selected adapters
 4. **Compose** — Gemini generates a custom Python agent class
 5. **Deploy** — One-click deploy to Google Cloud Run
@@ -715,7 +715,7 @@ cd frontend && npm install && npm run dev
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/templates` | GET | List all 18 templates + 57 adapters |
+| `/api/templates` | GET | List all 18 templates + 58 adapters |
 | `/api/compose` | POST | Generate agent code via Gemini |
 | `/api/deploy` | POST | Return Cloud Run deployment command |
 
@@ -796,7 +796,7 @@ resolver.negotiate([{"id": "sentinel_detect"}, {"id": "unknown_cap"}])
 
 ## 14. Extending Cybernetics
 
-Cybernetics is designed to be easily extensible. To add a new MCP adapter, follow these steps:
+Cybernetics is designed to be easily extensible. Adapters placed in `cybernetics/adapters/` are **automatically discovered and registered** at startup via `auto_discover()`. To add a new MCP adapter, follow these steps:
 
 ### 1. Create the Adapter Class
 Create a new file in `cybernetics/adapters/` (e.g., `my_service.py`). Inherit from `MCPAdapter` and implement the required methods:
@@ -841,11 +841,14 @@ Add any required environment variables to `cybernetics/config/settings.py` using
     myservice_api_key: str = Field("", alias="MYSERVICE_API_KEY")
 ```
 
-### 3. Register the Adapter
-In `cybernetics/broker/server.py`, import your adapter and register it with the global `register_adapter` function:
+### 3. Auto-Registration (No manual step needed)
+Because `auto_discover()` scans `cybernetics/adapters/` at startup, your adapter will be picked up automatically. No imports or manual registration required.
+
+If your adapter lives outside the standard directory, register it explicitly:
 
 ```python
 from cybernetics.adapters.my_service import MyServiceAdapter
+from cybernetics.registry.manager import register_adapter
 register_adapter("myservice", MyServiceAdapter)
 ```
 
