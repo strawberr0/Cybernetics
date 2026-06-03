@@ -22,7 +22,8 @@ Status: ✅ done · 🔲 todo · ⚠️ needs team decision · 🔴 blocker
 | # | Item | Owner | Status |
 |---|---|---|---|
 | B1 | First CI run on `merge-prep-dev` push — review job results | JS_ | ✅ (run 1 surfaced 2 dep bugs) |
-| B2 | `python-tests` install fixed: declared `boto3`+`motor` in pyproject (eager broker imports), dropped non-existent `dynatrace-opentelemetry` pin, CI installs `-e ".[dev]"` only | JS_ | ✅ fix pushed; reconfirm green |
+| B2 | `python-tests` install fixed: declared `boto3`+`motor` in pyproject (eager broker imports), dropped non-existent `dynatrace-opentelemetry` pin, CI installs `-e ".[dev]"` only | JS_ | ✅ install green (run 2) |
+| B2b | Tier tests: unit job runs all except `test_composer_e2e.py`; new `e2e-tests` job builds frontend + installs Chromium then runs it (run 2 failed only on the browser e2e lacking a browser) | JS_ | ✅ fix pushed; reconfirm |
 | B3 | `frontend-build`: `npm ci && npm run build` (tsc + vite) → green | JS_ | ✅ run 1 |
 | B4 | Fix any failures surfaced by B2/B3 (no deleting/skipping tests — repo rule) | JS_ | 🔲 |
 | B5 | Verify clean-clone `npm install` works (confirms node_modules untrack is safe) | JS_ | 🔲 |
