@@ -3,7 +3,6 @@ google-cloud-aiplatform>=1.74.0
 google-generativeai>=0.8.0
 pymongo>=4.10.0
 elasticsearch>=8.16.0
-dynatrace-opentelemetry>=1.0.0
 arize-phoenix>=7.0.0
 arize-phoenix-otel>=0.6.0
 openinference-instrumentation>=0.1.0
