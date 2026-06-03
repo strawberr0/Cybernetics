@@ -6,9 +6,11 @@ name: CI
 #  - e2e-tests    : the browser e2e test, run with its real prerequisites
 #                   (built frontend/dist + an installed Chromium)
 # Tests are tiered by prerequisite, not skipped — test_composer_e2e.py still
-# runs, just in the job that has a browser. The Docker/Cloud Run deploy is NOT
-# wired here yet because the Dockerfile builds a non-existent `backend/` Go
-# server — see TASK-LIST.md "Deployment blockers" before adding a deploy job.
+# runs, just in the job that has a browser.
+#  - docker-build : proves the production image (Go cmd/composer server + built
+#                   frontend) actually builds. The live Cloud Run deploy step in
+#                   cloudbuild.yaml still needs GCP creds + the C1 auth decision
+#                   (see TASK-LIST.md) and is intentionally not run here.
 
 on:
   push:
@@ -80,3 +82,11 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Run browser e2e
         run: pytest tests/test_composer_e2e.py
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build -t cybernetics:ci .

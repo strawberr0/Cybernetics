@@ -35,11 +35,11 @@ Status: ✅ done · 🔲 todo · ⚠️ needs team decision · 🔴 blocker
 | # | Item | Detail | Owner | Status |
 |---|---|---|---|---|
 | C1 | **Fix `cloudbuild.yaml` `--allow-unauthenticated`** | Switch to `--no-allow-unauthenticated` + IAP to match README Zero-Trust claim — OR consciously downgrade the README. Decide deliberately; it affects whether the demo endpoint is public. | Sebuh | ⚠️ 🔲 |
-| C2 | 🔴 **Dockerfile is broken** | Stage 2 does `COPY backend/go.* ./` + builds `cybernetics-server`, but **no `backend/` dir exists** and the only Go `main()` is `cmd/composer/main.go`. Build fails → deploy can never go green. | Sebuh + JS_ | 🔴 🔲 |
-| C3 | ⚠️ **Decide the deploy artifact** | Tested product is the **Python FastAPI broker** (`cybernetics.broker.server:app`), not a Go server. Likely fix: Python/uvicorn image (`uvicorn cybernetics.broker.server:app --host 0.0.0.0 --port 8080`). Needs team sign-off — architecture decision for the org repo. | Roy + Sebuh | ⚠️ 🔴 🔲 |
-| C4 | After C2/C3: add a `docker-build` CI job, then a gated deploy job | once buildable, wire `docker build .` into CI for a green checkmark | JS_ | 🔲 |
-| C5 | Stand up Cloud Run instance + capture public URL (submission) | depends on C2/C3 | Sebuh | 🔲 |
-| C6 | Verify green deployment (merge gate) | depends on C2/C3 | Sebuh | 🔲 |
+| C2 | ✅ **Dockerfile fixed** | Was building a non-existent `backend/` Go server. Resolved: the real server **is** `cmd/composer/main.go` (serves `/api/*` Gemini endpoints + static frontend). Dockerfile now builds `./cmd/composer` from the root module and copies `frontend/dist`→`./static`. | Roy | ✅ |
+| C3 | ✅ **Deploy artifact identified** | `cmd/composer` (Go) is the web server; the FastAPI broker is a separate MCP API. No architecture change needed — the original Go+static design was correct, just mis-wired. | Roy | ✅ |
+| C4 | ✅ `docker-build` CI job added (`docker build .`) | proves the image builds on every push | JS_ | ✅ reconfirm green |
+| C5 | Stand up Cloud Run instance + capture public URL (submission) | needs GCP `$PROJECT_ID` + creds (not in CI) | Sebuh | 🔲 |
+| C6 | Verify green deployment (merge gate) | run `cloudbuild.yaml` against the project | Sebuh | 🔲 |
 
 ---
 
