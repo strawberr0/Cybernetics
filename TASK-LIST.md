@@ -46,7 +46,7 @@ Status: ✅ done · 🔲 todo · ⚠️ needs team decision · 🔴 blocker
 ## D. Repo correctness / consistency
 | # | Item | Detail | Owner | Status |
 |---|---|---|---|---|
-| D1 | ⚠️ **License mismatch** | `pyproject.toml` says `AGPL-3.0-or-later`; README/About claim **Apache-2.0**. Pick one; ensure `LICENSE` + About + pyproject agree (hackathon needs a detectable OSI license). | Roy | ⚠️ 🔲 |
+| D1 | ✅ **License unified to Apache-2.0** | Was 3-way conflict: `LICENSE` file was inherited AIWG **MIT** (© Joe Magly), README badge said Apache, README footer + pyproject said AGPL. Now consistent: full Apache-2.0 `LICENSE` (© 2026 strawberr0/Cybernetics team), new `NOTICE` retaining AIWG MIT attribution, README footer + `pyproject` = Apache-2.0. GitHub "About" will now detect Apache-2.0. | Roy | ✅ |
 | D2 | `composer` (8.6 MB) is the compiled output of `cmd/composer/main.go` — consider gitignoring the binary, keep the source | JS_ | 🔲 |
 | D3 | `Dev` vs `dev` branch confusion upstream — confirm canonical staging branch with team | Roy | ⚠️ 🔲 |
 
