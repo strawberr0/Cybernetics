@@ -1,0 +1,49 @@
+name: CI
+
+# Repo had no CI before this branch. These two jobs are the achievable-green
+# gate (unit tests + frontend build). The Docker/Cloud Run deploy is NOT wired
+# here yet because the Dockerfile builds a non-existent `backend/` Go server —
+# see TASK-LIST.md "Deployment blockers" before adding a deploy job.
+
+on:
+  push:
+    branches: [merge-prep-dev, main, master, Dev]
+  pull_request:
+    branches: [Dev, main, master]
+
+jobs:
+  python-tests:
+    name: Python unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          # requirements.txt carries adapter SDKs imported at test-collection time
+          pip install -r requirements.txt
+      - name: Run pytest
+        run: pytest
+
+  frontend-build:
+    name: Frontend build (tsc + vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
