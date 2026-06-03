@@ -21,9 +21,9 @@ Status: ✅ done · 🔲 todo · ⚠️ needs team decision · 🔴 blocker
 ## B. Green CI — build & test (achievable now)
 | # | Item | Owner | Status |
 |---|---|---|---|
-| B1 | First CI run on `merge-prep-dev` push — review job results | JS_ | 🔲 |
-| B2 | `python-tests`: `pip install -e ".[dev]" -r requirements.txt && pytest` → green | JS_ | 🔲 |
-| B3 | `frontend-build`: `npm ci && npm run build` (tsc + vite) → green | JS_ | 🔲 |
+| B1 | First CI run on `merge-prep-dev` push — review job results | JS_ | ✅ (run 1 surfaced 2 dep bugs) |
+| B2 | `python-tests` install fixed: declared `boto3`+`motor` in pyproject (eager broker imports), dropped non-existent `dynatrace-opentelemetry` pin, CI installs `-e ".[dev]"` only | JS_ | ✅ fix pushed; reconfirm green |
+| B3 | `frontend-build`: `npm ci && npm run build` (tsc + vite) → green | JS_ | ✅ run 1 |
 | B4 | Fix any failures surfaced by B2/B3 (no deleting/skipping tests — repo rule) | JS_ | 🔲 |
 | B5 | Verify clean-clone `npm install` works (confirms node_modules untrack is safe) | JS_ | 🔲 |
 
