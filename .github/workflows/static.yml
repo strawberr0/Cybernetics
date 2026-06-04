@@ -1,0 +1,42 @@
+name: Deploy progress dashboard to Pages
+
+# Deploys the dark-mode submission dashboard in /site to GitHub Pages.
+# One-time setup: repo Settings → Pages → Source = "GitHub Actions".
+# The build copies TASK-LIST.md next to the page so it renders the live list.
+
+on:
+  push:
+    branches: [progress-dashboard]
+    paths:
+      - "site/**"
+      - "TASK-LIST.md"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stamp build SHA + bundle TASK-LIST.md into the site
+        run: |
+          cp TASK-LIST.md site/TASK-LIST.md
+          sed -i "s/>local</>${GITHUB_SHA::7}</" site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
