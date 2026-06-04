@@ -241,7 +241,7 @@ export function MCPPage() {
       <section className="p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
         <div className="flex items-center gap-2">
           <Wrench className="w-5 h-5 text-emerald-400" />
-          <h3 className="text-lg font-semibold text-white">Adapter Catalog — 21 Adapters, 80+ Tools</h3>
+          <h3 className="text-lg font-semibold text-white">Adapter Catalog — 55+ Adapters, 150+ Tools</h3>
         </div>
         <p className="text-sm text-slate-400">
           Each adapter shows: preset connection config (ops-managed), secret keys you must provide, and every tool exposed over MCP.

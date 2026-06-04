@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Composable Meta-MCP for Google Cloud Agents</strong><br/>
-  <sub>v0.1.1  •  20 Adapters  •  80+ Tools  •  Agent Composer  •  A2A/ERC-8004 Ready</sub>
+  <sub>v0.1.1  •  58 Adapters  •  153+ Tools  •  Agent Composer  •  A2A/ERC-8004 Ready</sub>
 </p>
 
 <p align="center">
@@ -37,7 +37,7 @@
 
 ## 1. Executive Summary
 
-Cybernetics is a **composable Model Context Protocol (MCP) meta-broker** designed for Google Cloud enterprise environments. It aggregates 13+ third-party MCP servers into a unified, authenticated, auditable control plane and exposes composable **agent templates** that execute multi-phase autonomous workflows on top of that plane.
+Cybernetics is a **composable Model Context Protocol (MCP) meta-broker** designed for Google Cloud enterprise environments. It aggregates 57 third-party MCP servers into a unified, authenticated, auditable control plane and exposes composable **agent templates** that execute multi-phase autonomous workflows on top of that plane.
 
 ### Key Differentiators
 - **Zero Trust by default** — every request authenticated, no anonymous endpoints beyond health probes
@@ -108,7 +108,7 @@ Cybernetics is a **composable Model Context Protocol (MCP) meta-broker** designe
 1. **Request** → Cloud Run → `APIKeyAuth` middleware validates Bearer token
 2. **Routing** → FastAPI dispatches to `/mcp/invoke`, `/mcp/tools`, or `/mcp/sse`
 3. **Sentinel Pipeline** → `Auditor.before()` logs call, `Guard.before()` blocks sensitive keys
-4. **Registry** → Loads adapter from `ADAPTER_MAP`, executes tool via circuit breaker
+4. **Registry** → `auto_discover()` scans `cybernetics/adapters/` and registers all concrete `MCPAdapter` subclasses dynamically; executes tool via circuit breaker
 5. **Adapter** → Async HTTP/SQL client calls downstream MCP server
 6. **Response** → `Auditor.after()` logs result, circuit breaker state updated
 
@@ -265,31 +265,112 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 
 ---
 
-## 5. Adapter Catalog (20 Adapters, 80+ Tools)
+## 5. Adapter Catalog (58 Adapters, 153+ Tools)
+
+### Non-Google Adapters
 
 | Adapter | Protocol | Auth | Circuit | Tools (complete) |
 |---|---|---|---|---|
+| `airtable` | REST | `Bearer` | airtable | `airtable_list_bases`, `airtable_get_base`, `airtable_create_record` |
+| `arize` | REST | `Bearer` | arize | `arize_run_judge` (Gemini), `arize_log_eval` |
+| `asana` | REST | `Bearer` | asana | `asana_list_projects`, `asana_get_task`, `asana_create_task` |
+| `aws` | boto3 | IAM / keys | aws | `aws_s3_list_buckets`, `aws_s3_list_objects`, `aws_ec2_describe_instances`, `aws_lambda_list_functions`, `aws_lambda_invoke`, `aws_cloudwatch_get_metrics` |
+| `brave` | Playwright | N/A | brave | `brave_navigate`, `brave_evaluate`, `brave_screenshot`, `brave_click`, `brave_type`, `brave_set_viewport`, `brave_pdf`, `brave_check_shields` |
+| `browser` | WebSocket CDP | N/A | browser | `browser_navigate`, `browser_evaluate`, `browser_screenshot`, `browser_get_network_log`, `browser_get_console_log`, `browser_clear_cache` |
+| `chrome` | WebSocket CDP | N/A | chrome | `chrome_navigate`, `chrome_evaluate`, `chrome_screenshot`, `chrome_get_network`, `chrome_get_console`, `chrome_clear_cache`, `chrome_set_viewport`, `chrome_click`, `chrome_type`, `chrome_pdf` |
+| `cloudflare` | REST | `Bearer` | cloudflare | `cloudflare_list_zones`, `cloudflare_list_dns`, `cloudflare_create_dns`, `cloudflare_list_workers`, `cloudflare_deploy_worker` |
+| `confluence` | REST | `Api-Token` | confluence | `confluence_search_pages`, `confluence_get_page`, `confluence_create_page` |
+| `datadog` | REST | `DD-API-Key` | datadog | `datadog_query_metrics`, `datadog_list_monitors`, `datadog_get_monitor`, `datadog_mute_monitor`, `datadog_list_incidents`, `datadog_search_logs`, `datadog_post_event` |
+| `docker` | REST / socket | N/A | docker | `docker_list_containers`, `docker_run`, `docker_build`, `docker_logs` |
 | `dynatrace` | REST | `Api-Token` | dynatrace | `dynatrace_get_problems`, `dynatrace_get_traces`, `dynatrace_run_dql` |
 | `elastic` | REST | `ApiKey` | elastic | `elastic_search_incidents`, `elastic_search_runbooks`, `elastic_write_insight` |
-| `postgres` | TCP | DSN | postgres | `postgres_recall_pattern`, `postgres_store_pattern`, `postgres_log_incident` |
-| `gitlab` | REST | `PRIVATE-TOKEN` | gitlab | `gitlab_create_issue`, `gitlab_create_mr`, `gitlab_get_file`, `gitlab_trigger_pipeline` |
-| `arize` | REST | `Bearer` | arize | `arize_run_judge` (Gemini), `arize_log_eval` |
-| `fivetran` | REST | Basic | fivetran | `fivetran_list_connectors`, `fivetran_get_status`, `fivetran_sync`, `fivetran_create_pipeline` |
-| `github` | REST | `token` | github | `github_create_issue`, `github_create_pr`, `github_list_repos`, `github_trigger_workflow`, `github_search_code` |
-| `stripe` | REST | `Bearer` | stripe | `stripe_create_customer`, `stripe_get_customer`, `stripe_create_charge`, `stripe_list_invoices`, `stripe_create_subscription` |
-| `aws` | boto3 | IAM / keys | aws | `aws_s3_list_buckets`, `aws_ec2_describe`, `aws_lambda_invoke`, `aws_cloudwatch_metrics` |
-| `vercel` | REST | `Bearer` | vercel | `vercel_list_projects`, `vercel_get_deployment`, `vercel_list_deployments`, `vercel_add_env_var` |
-| `supabase` | REST | `apikey` | supabase | `supabase_select`, `supabase_insert`, `supabase_update`, `supabase_delete`, `supabase_rpc` |
-| `cloudflare` | REST | `Bearer` | cloudflare | `cloudflare_list_zones`, `cloudflare_list_dns`, `cloudflare_create_dns`, `cloudflare_list_workers`, `cloudflare_deploy_worker` |
-| `browser` | WebSocket CDP | N/A | browser | `browser_navigate`, `browser_evaluate`, `browser_screenshot`, `browser_get_network`, `browser_get_console`, `browser_clear_cache` |
-| `chrome` | WebSocket CDP | N/A | chrome | `chrome_navigate`, `chrome_evaluate`, `chrome_screenshot`, `chrome_get_network`, `chrome_get_console`, `chrome_clear_cache`, `chrome_set_viewport`, `chrome_click`, `chrome_type`, `chrome_pdf` |
+| `fivetran` | REST | Basic | fivetran | `fivetran_list_connectors`, `fivetran_get_connector_status`, `fivetran_sync_connector`, `fivetran_create_log_pipeline` |
 | `firefox` | Playwright | N/A | firefox | `firefox_navigate`, `firefox_evaluate`, `firefox_screenshot`, `firefox_get_console`, `firefox_click`, `firefox_type`, `firefox_set_viewport`, `firefox_pdf` |
-| `brave` | Playwright | N/A | brave | `brave_navigate`, `brave_evaluate`, `brave_screenshot`, `brave_click`, `brave_type`, `brave_set_viewport`, `brave_pdf`, `brave_check_shields` |
-| `slack` | REST | `Bearer` | slack | `slack_post_message`, `slack_get_channel_history`, `slack_list_channels`, `slack_search_messages`, `slack_upload_file`, `slack_get_user_info` |
-| `kubernetes` | HTTP / kubeconfig | Token | kubernetes | `k8s_list_pods`, `k8s_get_pod_logs`, `k8s_describe_pod`, `k8s_scale_deployment`, `k8s_restart_deployment`, `k8s_list_deployments`, `k8s_list_services`, `k8s_exec_command` |
-| `datadog` | REST | `DD-API-Key` | datadog | `datadog_query_metrics`, `datadog_list_monitors`, `datadog_get_monitor`, `datadog_mute_monitor`, `datadog_list_incidents`, `datadog_search_logs`, `datadog_post_event` |
-| `notion` | REST | `Bearer` | notion | `notion_search`, `notion_get_page`, `notion_create_page`, `notion_query_database`, `notion_update_page`, `notion_get_database` |
+| `github` | REST | `token` | github | `github_create_issue`, `github_get_issue`, `github_create_pr`, `github_list_repos`, `github_trigger_workflow`, `github_search_code` |
+| `gitlab` | REST | `PRIVATE-TOKEN` | gitlab | `gitlab_create_issue`, `gitlab_create_mr`, `gitlab_get_file`, `gitlab_trigger_pipeline` |
+| `jira` | REST | `Api-Token` | jira | `jira_create_issue`, `jira_search_issues`, `jira_get_sprint`, `jira_transition_issue` |
+| `kubernetes` | REST | `KUBECONFIG` | kubernetes | `k8s_list_pods`, `k8s_get_pod_logs`, `k8s_describe_pod`, `k8s_scale_deployment`, `k8s_restart_deployment`, `k8s_list_deployments`, `k8s_list_services` |
 | `linear` | GraphQL | `Bearer` | linear | `linear_create_issue`, `linear_list_issues`, `linear_update_issue`, `linear_get_teams`, `linear_search_issues`, `linear_create_comment` |
+| `mongodb` | TCP | URI | mongodb | `mongodb_find`, `mongodb_insert`, `mongodb_aggregate`, `mongodb_index` |
+| `n8n` | REST | `Api-Key` | n8n | `n8n_list_workflows`, `n8n_trigger`, `n8n_get_execution` |
+| `notion` | REST | `Bearer` | notion | `notion_search`, `notion_get_page`, `notion_create_page`, `notion_query_database`, `notion_update_page`, `notion_get_database` |
+| `pagerduty` | REST | `Token` | pagerduty | `pagerduty_list_incidents`, `pagerduty_acknowledge`, `pagerduty_get_oncall` |
+| `postgres` | TCP | DSN | postgres | `postgres_recall_pattern`, `postgres_store_pattern`, `postgres_log_incident`, `postgres_get_recent_incidents` |
+| `quickbooks` | REST | OAuth | quickbooks | `qb_list_customers`, `qb_get_customer`, `qb_create_invoice`, `qb_list_invoices`, `qb_get_report` |
+| `redis` | TCP | URI | redis | `redis_get`, `redis_set`, `redis_publish`, `redis_stream_read` |
+| `shopify` | REST | `Access-Token` | shopify | `shopify_list_products`, `shopify_get_order`, `shopify_create_draft`, `shopify_update_inventory` |
+| `slack` | REST | `Bearer` | slack | `slack_post_message`, `slack_get_channel_history`, `slack_list_channels`, `slack_search_messages`, `slack_upload_file`, `slack_get_user_info` |
+| `snowflake` | JDBC/REST | Key-pair | snowflake | `snowflake_query`, `snowflake_list_warehouses`, `snowflake_share` |
+| `stripe` | REST | `Bearer` | stripe | `stripe_create_customer`, `stripe_get_customer`, `stripe_create_charge`, `stripe_list_invoices`, `stripe_create_subscription` |
+| `supabase` | REST | `apikey` | supabase | `supabase_select`, `supabase_insert`, `supabase_update`, `supabase_delete`, `supabase_rpc` |
+| `vercel` | REST | `Bearer` | vercel | `vercel_list_projects`, `vercel_get_deployment`, `vercel_list_deployments`, `vercel_add_env_var` |
+
+### Google MCP Hub (25 Servers)
+
+| Adapter | Source |
+|---|---|
+| `google-workspace` | [gemini-cli-extensions/workspace](https://github.com/gemini-cli-extensions/workspace) |
+| `google-cloud-run` | [GoogleCloudPlatform/cloud-run-mcp](https://github.com/GoogleCloudPlatform/cloud-run-mcp) |
+| `google-go` | [go.dev/gopls/features/mcp](https://go.dev/gopls/features/mcp) |
+| `google-analytics` | [googleanalytics/google-analytics-mcp](https://github.com/googleanalytics/google-analytics-mcp) |
+| `google-mcp-toolbox` | [googleapis/mcp-toolbox](https://github.com/googleapis/mcp-toolbox) |
+| `google-cloud-storage` | [googleapis/gcloud-mcp/packages/storage-mcp](https://github.com/googleapis/gcloud-mcp/tree/main/packages/storage-mcp) |
+| `google-genmedia` | [vertex-ai-creative-studio/mcp-genmedia](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia) |
+| `google-gke` | [GoogleCloudPlatform/gke-mcp](https://github.com/GoogleCloudPlatform/gke-mcp) |
+| `google-gcloud` | [googleapis/gcloud-mcp/packages/gcloud-mcp](https://github.com/googleapis/gcloud-mcp/tree/main/packages/gcloud-mcp) |
+| `google-observability` | [googleapis/gcloud-mcp/packages/observability-mcp](https://github.com/googleapis/gcloud-mcp/tree/main/packages/observability-mcp) |
+| `google-flutter` | [dart-lang/ai/pkgs/dart_mcp_server](https://github.com/dart-lang/ai/tree/main/pkgs/dart_mcp_server) |
+| `google-maps` | [Google Maps AI Code Assist](https://developers.google.com/maps/ai/code-assist) |
+| `google-alloydb` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-bigtable` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-chronicle` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-cloud-resource-manager` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-cloud-sql-mysql` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-cloud-sql-postgres` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-cloud-sql-sqlserver` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-compute-engine` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-developer-knowledge` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-firebase` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-firestore` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+| `google-spanner` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
+
+### 5.1 MCP Server Sources
+
+| Adapter | Official MCP Server / Source |
+|---|---|
+| `airtable` | [Airtable MCP Server](https://support.airtable.com/docs/using-the-airtable-mcp-server) |
+| `arize` | [Arize-ai/arize-tracing-assistant](https://github.com/Arize-ai/arize-tracing-assistant) |
+| `asana` | [Asana MCP Server](https://developers.asana.com/docs/mcp-server) |
+| `aws` | [awslabs/mcp](https://github.com/awslabs/mcp) |
+| `brave` | [brave/brave-search-mcp-server](https://github.com/brave/brave-search-mcp-server) |
+| `confluence`, `jira` | [Atlassian MCP Server](https://github.com/atlassian/atlassian-mcp-server) |
+| `browser` / `playwright` | [microsoft/playwright-mcp](https://github.com/microsoft/playwright-mcp) |
+| `chrome` | [ChromeDevTools/chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
+| `cloudflare` | [cloudflare/mcp-server-cloudflare](https://github.com/cloudflare/mcp-server-cloudflare) |
+| `datadog` | [datadog-labs/mcp-server](https://github.com/datadog-labs/mcp-server) |
+| `dynatrace` | [dynatrace-oss/dynatrace-mcp](https://github.com/dynatrace-oss/dynatrace-mcp) |
+| `elastic` | [elastic/mcp-server-elasticsearch](https://github.com/elastic/mcp-server-elasticsearch) |
+| `fivetran` | [fivetran/fivetran-mcp](https://github.com/fivetran/fivetran-mcp) |
+| `firefox` | [mozilla/firefox-devtools-mcp](https://github.com/mozilla/firefox-devtools-mcp) |
+| `github` | [github/github-mcp-server](https://github.com/github/github-mcp-server) |
+| `gitlab` | [GitLab MCP Server](https://docs.gitlab.com/user/gitlab_duo/model_context_protocol/mcp_server/) |
+| `kubernetes` | [Kubernetes MCP](https://github.com/kubernetes/mcp) |
+| `linear` | [Linear MCP Docs](https://linear.app/docs/mcp) |
+| `mongodb` | [MongoDB MCP Server Docs](https://www.mongodb.com/docs/mcp-server/get-started/) |
+| `n8n` | [n8n MCP Server](https://docs.n8n.io/advanced-ai/mcp/accessing-n8n-mcp-server/) |
+| `notion` | [makenotion/notion-mcp-server](https://github.com/makenotion/notion-mcp-server) |
+| `pagerduty` | [PagerDuty/pagerduty-mcp-server](https://github.com/PagerDuty/pagerduty-mcp-server) |
+| `postgres` | [prisma/mcp](https://github.com/prisma/mcp) |
+| `quickbooks` | [intuit/quickbooks-online-mcp-server](https://github.com/intuit/quickbooks-online-mcp-server) |
+| `redis` | [redis/mcp-redis](https://github.com/redis/mcp-redis) |
+| `shopify` | [Shopify MCP Storefront](https://shopify.dev/docs/apps/build/storefront-mcp/servers/storefront) |
+| `slack` | [Slack MCP Server](https://docs.slack.dev/ai/slack-mcp-server/) |
+| `snowflake` | [Snowflake-Labs/mcp](https://github.com/Snowflake-Labs/mcp) |
+| `stripe` | [mcp/com.stripe/mcp](https://github.com/mcp/com.stripe/mcp) |
+| `supabase` | [Supabase MCP Guide](https://supabase.com/docs/guides/ai-tools/mcp) |
+| `vercel` | [vercel-labs/mcp-on-vercel](https://github.com/vercel-labs/mcp-on-vercel) |
+
+**Google MCP Servers** — see the Google MCP Hub table above for all 24 individual server sources.
 
 ---
 
@@ -355,13 +436,113 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 6. **Learn** — Store pipeline patterns
 
 ### 6.7 OpsAgent — General DevOps Orchestration
-**Adapters:** datadog, slack, kubernetes, github, linear, postgres  
+**Adapters:** datadog, slack, github, linear, postgres  
 **Phases:**
-1. **Observe** — Datadog metrics + Kubernetes pod status
+1. **Observe** — Datadog metrics + system health checks
 2. **Diagnose** — Crash loop? Memory pressure? Latency spike?
 3. **Act** — Restart deployment, scale replicas, create Linear ticket
 4. **Notify** — Slack #ops-alerts with diagnosis + actions
 5. **Learn** — Store remediation patterns in Postgres
+
+### 6.8 ContentAgent — Content Operations
+**Adapters:** notion, linear, slack  
+**Phases:**
+1. **Plan** — Outline content from Linear roadmap
+2. **Draft** — Generate in Notion
+3. **Review** — Slack approval workflow
+4. **Publish** — Schedule via Notion API
+5. **Distribute** — Cross-post to channels
+6. **Learn** — Engagement analytics → content strategy
+
+### 6.9 CommerceAgent — E-commerce Operations
+**Adapters:** stripe, supabase, aws, slack  
+**Phases:**
+1. **Catalog** — Sync product data from Supabase
+2. **Pricing** — Dynamic pricing rules
+3. **Checkout** — Stripe payment flow monitoring
+4. **Fulfillment** — AWS Lambda order processing
+5. **Reconcile** — Daily Stripe payout audit
+6. **Notify** — Slack revenue digest
+
+### 6.10 GoogleWorkspaceAgent — Workspace Automation
+**Adapters:** google-workspace, slack  
+**Phases:**
+1. **Monitor** — Scan Gmail for priority threads
+2. **Triage** — Label & route via Drive docs
+3. **Draft** — Compose Calendar invites + replies
+4. **Schedule** — Auto-book meetings from email context
+5. **Notify** — Slack summary of day's actions
+6. **Archive** — Move resolved threads to Drive folder
+
+### 6.11 AtlassianAgent — Engineering Project Management
+**Adapters:** jira, confluence, github, slack  
+**Phases:**
+1. **Backlog** — Jira grooming from Confluence specs
+2. **Sprint** — Auto-assign from GitHub commit velocity
+3. **Review** — PR checklist from Jira acceptance criteria
+4. **Deploy** — GitHub Actions → Jira transition
+5. **Retro** — Confluence retro doc + Slack poll
+6. **Learn** — Sprint velocity trend analysis
+
+### 6.12 BrowserQAAgent — Frontend QA Automation
+**Adapters:** browser, chrome, firefox, slack  
+**Phases:**
+1. **Scan** — Crawl sitemap for changes
+2. **Test** — Playwright regression suite
+3. **Screenshot** — Visual diff across Chrome + Firefox
+4. **Compare** — Baseline vs current pixel match
+5. **Report** — Slack #qa-alerts with diff links
+6. **Learn** — Flaky test pattern detection
+
+### 6.13 CRMAgent — Sales Operations
+**Adapters:** airtable, google-workspace, slack  
+**Phases:**
+1. **Lead** — Ingest leads from Gmail signature capture
+2. **Qualify** — Airtable scoring + Drive proposal lookup
+3. **Proposal** — Generate quote from Drive template
+4. **Close** — Gmail follow-up sequence + Slack win channel
+5. **Onboard** — Drive welcome kit + Calendar kickoff
+6. **Nurture** — Airtable campaign enrollment
+
+### 6.14 ShopifyAgent — Shopify Store Ops
+**Adapters:** shopify, stripe, postgres, slack  
+**Phases:**
+1. **Inventory** — Shopify stock sync to Postgres
+2. **Pricing** — Dynamic margin rules
+3. **Order** — Shopify webhook → Stripe charge verify
+4. **Fulfill** — Shipping label + tracking update
+5. **Refund** — Stripe refund → Shopify order adjust
+6. **Review** — Slack daily P&L digest
+
+### 6.15 DatabaseOpsAgent — Polyglot Database Ops
+**Adapters:** mongodb, redis, postgres, datadog, slack  
+**Phases:**
+1. **Monitor** — Datadog slow query alerts
+2. **Diagnose** — Explain plan + index health across all DBs
+3. **Migrate** — Postgres → MongoDB schema mapping
+4. **Optimise** — Redis eviction + MongoDB index rebuild
+5. **Backup** — Cross-DB snapshot verification
+6. **Learn** — Query pattern + cache hit rate trends
+
+### 6.16 SREObservabilityAgent — Full-Stack Observability
+**Adapters:** dynatrace, elastic, datadog, pagerduty, slack  
+**Phases:**
+1. **Detect** — Dynatrace anomaly + Elastic error spike correlation
+2. **Correlate** — Datadog cross-service trace linking
+3. **Escalate** — PagerDuty severity + on-call routing
+4. **Remediate** — Auto-runbook execution
+5. **Verify** — Dynatrace/Elastic post-fix metrics
+6. **Learn** — Incident post-mortem → runbook update
+
+### 6.17 InfrastructureAgent — IaC & Container Ops
+**Adapters:** docker, gitlab, aws, cloudflare, slack  
+**Phases:**
+1. **Plan** — GitLab CI pipeline + drift detection
+2. **Build** — Docker image build + scan
+3. **Test** — GitLab plan against AWS staging
+4. **Deploy** — Cloudflare Worker + ECS rollout
+5. **Monitor** — AWS CloudWatch + CF analytics
+6. **Learn** — Cost + performance delta analysis
 
 ---
 
@@ -524,8 +705,8 @@ cd frontend && npm install && npm run dev
 ```
 
 **Workflow:**
-1. **Pick Template** — Choose from 10 agent templates (Sentinel, Deploy, Finance, Infra, Security, Data, Ops, Content, Commerce, Analytics)
-2. **Select Adapters** — Toggle any of the 20 MCP adapters
+1. **Pick Template** — Choose from 18 agent templates (Sentinel, Deploy, Finance, Infra, Security, Data, Ops, Content, Commerce, Analytics, Google Workspace, Atlassian, Browser QA, CRM, Shopify, Database Ops, SRE Observability, Infrastructure)
+2. **Select Adapters** — Toggle any of the 58 MCP adapters
 3. **Configure Keys** — Enter API keys for selected adapters
 4. **Compose** — Gemini generates a custom Python agent class
 5. **Deploy** — One-click deploy to Google Cloud Run
@@ -534,7 +715,7 @@ cd frontend && npm install && npm run dev
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/templates` | GET | List all 10 templates + 20 adapters |
+| `/api/templates` | GET | List all 18 templates + 58 adapters |
 | `/api/compose` | POST | Generate agent code via Gemini |
 | `/api/deploy` | POST | Return Cloud Run deployment command |
 
@@ -615,7 +796,7 @@ resolver.negotiate([{"id": "sentinel_detect"}, {"id": "unknown_cap"}])
 
 ## 14. Extending Cybernetics
 
-Cybernetics is designed to be easily extensible. To add a new MCP adapter, follow these steps:
+Cybernetics is designed to be easily extensible. Adapters placed in `cybernetics/adapters/` are **automatically discovered and registered** at startup via `auto_discover()`. To add a new MCP adapter, follow these steps:
 
 ### 1. Create the Adapter Class
 Create a new file in `cybernetics/adapters/` (e.g., `my_service.py`). Inherit from `MCPAdapter` and implement the required methods:
@@ -660,11 +841,14 @@ Add any required environment variables to `cybernetics/config/settings.py` using
     myservice_api_key: str = Field("", alias="MYSERVICE_API_KEY")
 ```
 
-### 3. Register the Adapter
-In `cybernetics/broker/server.py`, import your adapter and register it with the global `register_adapter` function:
+### 3. Auto-Registration (No manual step needed)
+Because `auto_discover()` scans `cybernetics/adapters/` at startup, your adapter will be picked up automatically. No imports or manual registration required.
+
+If your adapter lives outside the standard directory, register it explicitly:
 
 ```python
 from cybernetics.adapters.my_service import MyServiceAdapter
+from cybernetics.registry.manager import register_adapter
 register_adapter("myservice", MyServiceAdapter)
 ```
 

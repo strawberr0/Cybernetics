@@ -21,6 +21,9 @@ class BrowserAdapter(MCPAdapter):
         self._playwright = None
         self._browser: Browser = None
         self._context: BrowserContext = None
+        self._page: Page = None
+        self._console_logs: List[Dict[str, Any]] = []
+        self._network_logs: List[Dict[str, Any]] = []
         self.register_tool("browser_navigate", "Navigate to a URL", {"url": {"type": "string"}}, ["url"], self._navigate)
         self.register_tool("browser_evaluate", "Evaluate JavaScript", {"expression": {"type": "string"}}, ["expression"], self._evaluate)
         self.register_tool("browser_screenshot", "Take a screenshot", {"format": {"type": "string"}, "full_page": {"type": "boolean"}}, [], self._screenshot)
@@ -36,63 +39,64 @@ class BrowserAdapter(MCPAdapter):
         self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
         logger.info("browser_connected", cdp=self.cdp_url)
 
+    def _attach_listeners(self, page: Page):
+        """Attach console and network listeners to a page."""
+        page.on("console", lambda msg: self._console_logs.append({"type": msg.type, "text": msg.text}))
+        page.on("request", lambda req: self._network_logs.append({
+            "url": req.url,
+            "method": req.method,
+            "resource_type": req.resource_type,
+        }))
+
     @circuit("browser", failure_threshold=3, recovery_timeout=30)
     async def _navigate(self, url: str) -> Dict[str, Any]:
         await self._ensure_browser()
-        page: Page = await self._context.new_page()
-        resp = await page.goto(url, wait_until="networkidle", timeout=30000)
+        # Clear logs from previous navigation
+        self._console_logs.clear()
+        self._network_logs.clear()
+        self._page = await self._context.new_page()
+        self._attach_listeners(self._page)
+        resp = await self._page.goto(url, wait_until="networkidle", timeout=30000)
         status = resp.status if resp else 0
-        title = await page.title()
-        return {"url": url, "status": status, "title": title, "page_id": str(id(page))}
+        title = await self._page.title()
+        return {"url": url, "status": status, "title": title, "page_id": str(id(self._page))}
 
     @circuit("browser", failure_threshold=3, recovery_timeout=30)
     async def _evaluate(self, expression: str) -> Dict[str, Any]:
-        await self._ensure_browser()
-        page: Page = self._context.pages[0] if self._context.pages else await self._context.new_page()
-        result = await page.evaluate(expression)
+        if not self._page:
+            raise RuntimeError("No page open. Call browser_navigate first.")
+        result = await self._page.evaluate(expression)
         return {"result": result}
 
     @circuit("browser", failure_threshold=3, recovery_timeout=30)
     async def _screenshot(self, format: str = "png", full_page: bool = False) -> Dict[str, Any]:
-        await self._ensure_browser()
-        page: Page = self._context.pages[0] if self._context.pages else await self._context.new_page()
+        if not self._page:
+            raise RuntimeError("No page open. Call browser_navigate first.")
         path = f"/tmp/screenshot.{format}"
-        await page.screenshot(path=path, full_page=full_page, type=format)
+        await self._page.screenshot(path=path, full_page=full_page, type=format)
         with open(path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode("utf-8")
         return {"format": format, "full_page": full_page, "base64": b64}
 
     @circuit("browser", failure_threshold=3, recovery_timeout=30)
     async def _get_network(self) -> List[Dict[str, Any]]:
-        await self._ensure_browser()
-        page: Page = self._context.pages[0] if self._context.pages else await self._context.new_page()
-        # Playwright route monitoring
-        logs = []
-        async def handle_route(route, request):
-            logs.append({
-                "url": request.url,
-                "method": request.method,
-                "headers": dict(request.headers),
-            })
-            await route.continue_()
-        await page.route("**/*", handle_route)
-        return logs
+        if not self._page:
+            raise RuntimeError("No page open. Call browser_navigate first.")
+        return list(self._network_logs)
 
     @circuit("browser", failure_threshold=3, recovery_timeout=30)
-    async def _clear_cache(self) -> None:
-        await self._ensure_browser()
-        await self._context.clear_cookies()
-        # Clear local/session storage on all pages
-        for page in self._context.pages:
-            await page.evaluate("localStorage.clear(); sessionStorage.clear();")
+    async def _clear_cache(self) -> Dict[str, Any]:
+        if self._context:
+            await self._context.clear_cookies()
+            for page in self._context.pages:
+                await page.evaluate("localStorage.clear(); sessionStorage.clear();")
+        return {"cleared": True}
 
     @circuit("browser", failure_threshold=3, recovery_timeout=30)
     async def _get_console(self) -> List[Dict[str, Any]]:
-        await self._ensure_browser()
-        page: Page = self._context.pages[0] if self._context.pages else await self._context.new_page()
-        logs = []
-        page.on("console", lambda msg: logs.append({"type": msg.type, "text": msg.text}))
-        return logs
+        if not self._page:
+            raise RuntimeError("No page open. Call browser_navigate first.")
+        return list(self._console_logs)
 
     async def health(self) -> Dict[str, Any]:
         try:

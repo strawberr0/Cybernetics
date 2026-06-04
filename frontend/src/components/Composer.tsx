@@ -1,11 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, Bot, User, Terminal, Cpu, Check, Copy, Cloud, LayoutTemplate, Sparkles, Plug, Rocket, ChevronDown, X, Server } from 'lucide-react'
+import { Send, Terminal, Cpu, Check, Copy, Cloud, LayoutTemplate, Sparkles, Plug, Rocket, ChevronDown, X, Server } from 'lucide-react'
 
 interface Template {
   name: string
   description: string
   adapters: string[]
   phases: string[]
+}
+
+interface Adapter {
+  name: string
+  description: string
+  source: string
+  group?: string
 }
 
 interface Message {
@@ -19,27 +26,63 @@ interface Message {
 
 const envMap: Record<string, string[]> = {
   // ── Secret keys only (connection URLs are preset by ops) ──
-  dynatrace: ['DYNATRACE_API_TOKEN'],
-  elastic: ['ELASTIC_API_KEY'],
-  postgres: [],
-  gitlab: ['GITLAB_TOKEN'],
+  airtable: ['AIRTABLE_API_KEY'],
   arize: ['ARIZE_API_KEY'],
-  fivetran: ['FIVETRAN_API_KEY', 'FIVETRAN_API_SECRET'],
-  github: ['GITHUB_TOKEN'],
-  stripe: ['STRIPE_API_KEY'],
+  asana: ['ASANA_TOKEN'],
   aws: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
-  vercel: ['VERCEL_TOKEN'],
-  supabase: ['SUPABASE_KEY'],
-  cloudflare: ['CLOUDFLARE_API_TOKEN'],
+  brave: [],
   browser: [],
   chrome: [],
-  firefox: [],
-  brave: [],
-  slack: ['SLACK_BOT_TOKEN'],
-  kubernetes: [],
+  cloudflare: ['CLOUDFLARE_API_TOKEN'],
+  confluence: ['CONFLUENCE_API_TOKEN'],
   datadog: ['DATADOG_API_KEY', 'DATADOG_APP_KEY'],
-  notion: ['NOTION_TOKEN'],
+  docker: [],
+  dynatrace: ['DYNATRACE_API_TOKEN'],
+  elastic: ['ELASTIC_API_KEY'],
+  fivetran: ['FIVETRAN_API_KEY', 'FIVETRAN_API_SECRET'],
+  firefox: [],
+  github: ['GITHUB_TOKEN'],
+  gitlab: ['GITLAB_TOKEN'],
+  'google-alloydb': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-analytics': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-bigtable': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-chronicle': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-cloud-resource-manager': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-cloud-run': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-cloud-sql-mysql': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-cloud-sql-postgres': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-cloud-sql-sqlserver': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-cloud-storage': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-compute-engine': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-developer-knowledge': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-firebase': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-firestore': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-flutter': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-gcloud': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-genmedia': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-gke': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-go': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-maps': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-mcp-toolbox': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-observability': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-spanner': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  'google-workspace': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  jira: ['JIRA_API_TOKEN'],
+  kubernetes: ['KUBECONFIG'],
   linear: ['LINEAR_API_KEY'],
+  mongodb: ['MONGODB_URI'],
+  n8n: ['N8N_API_KEY'],
+  notion: ['NOTION_TOKEN'],
+  pagerduty: ['PAGERDUTY_API_KEY'],
+  postgres: [],
+  quickbooks: ['QUICKBOOKS_ACCESS_TOKEN', 'QUICKBOOKS_COMPANY_ID'],
+  redis: ['REDIS_URL'],
+  shopify: ['SHOPIFY_ACCESS_TOKEN', 'SHOPIFY_SHOP_DOMAIN'],
+  slack: ['SLACK_BOT_TOKEN'],
+  snowflake: ['SNOWFLAKE_ACCOUNT', 'SNOWFLAKE_USER', 'SNOWFLAKE_PASSWORD'],
+  stripe: ['STRIPE_API_KEY'],
+  supabase: ['SUPABASE_KEY'],
+  vercel: ['VERCEL_TOKEN'],
 }
 
 function generateId() {
@@ -58,7 +101,7 @@ export function Composer() {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [templates, setTemplates] = useState<Template[]>([])
-  const [allAdapters, setAllAdapters] = useState<string[]>([])
+  const [allAdapters, setAllAdapters] = useState<Adapter[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [selectedAdapters, setSelectedAdapters] = useState<Set<string>>(new Set())
   const [envVars, setEnvVars] = useState<Record<string, string>>({})
@@ -80,7 +123,7 @@ export function Composer() {
   useEffect(() => {
     fetch('/api/templates')
       .then(r => r.json())
-      .then((data: { templates: Template[]; adapters: string[] }) => {
+      .then((data: { templates: Template[]; adapters: Adapter[] }) => {
         setTemplates(data.templates)
         setAllAdapters(data.adapters)
       })
@@ -110,6 +153,72 @@ export function Composer() {
       keys.push(...(envMap[a] || []))
     })
     return [...new Set(keys)]
+  }
+
+  function groupAdapters(items: Adapter[]) {
+    const grouped = new Map<string, Adapter[]>()
+    const ungrouped: Adapter[] = []
+    for (const a of items) {
+      if (a.group) {
+        if (!grouped.has(a.group)) grouped.set(a.group, [])
+        grouped.get(a.group)!.push(a)
+      } else {
+        ungrouped.push(a)
+      }
+    }
+    return { grouped, ungrouped }
+  }
+
+  function renderAdapterCard(a: Adapter) {
+    return (
+      <button
+        key={a.name}
+        onClick={() => {
+          setSelectedAdapters(prev => {
+            const next = new Set(prev)
+            if (next.has(a.name)) next.delete(a.name)
+            else next.add(a.name)
+            return next
+          })
+        }}
+        className={`text-left p-3 rounded-lg border transition-all ${
+          selectedAdapters.has(a.name)
+            ? 'border-emerald-500/50 bg-emerald-500/10'
+            : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-white capitalize">{a.name}</div>
+          {selectedAdapters.has(a.name) && <Check className="w-3 h-3 text-emerald-400" />}
+        </div>
+        <div className="text-xs text-slate-400">{a.description}</div>
+        {a.source && (
+          <a
+            href={a.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
+            className="text-[10px] text-blue-400 hover:text-blue-300 mt-1 inline-block"
+          >
+            Source ↗
+          </a>
+        )}
+      </button>
+    )
+  }
+
+  function renderAdapterGrid(items: Adapter[]) {
+    const { grouped, ungrouped } = groupAdapters(items)
+    // Flatten grouped adapters so they render as individual cards like everything else
+    const allItems = [...ungrouped]
+    for (const [, groupItems] of grouped) {
+      allItems.push(...groupItems)
+    }
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+        {allItems.map(a => renderAdapterCard(a))}
+      </div>
+    )
   }
 
   async function handleChat(text: string, currentMessages: Message[]) {
@@ -292,7 +401,7 @@ export function Composer() {
     const useMatch = text.match(/^use\s+(.+)$/i)
     if (useMatch) {
       const names = useMatch[1].split(/,\s*/).map(s => s.trim().toLowerCase())
-      const valid = names.filter(n => allAdapters.includes(n))
+      const valid = names.filter(n => allAdapters.some(a => a.name === n))
       setSelectedAdapters(prev => {
         const next = new Set(prev)
         valid.forEach(v => next.add(v))
@@ -353,32 +462,8 @@ export function Composer() {
     }
 
     if (msg.action === 'adapters') {
-      const items: string[] = msg.actionData || allAdapters
-      return (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {items.map((a: string) => (
-            <button
-              key={a}
-              onClick={() => {
-                setSelectedAdapters(prev => {
-                  const next = new Set(prev)
-                  if (next.has(a)) next.delete(a)
-                  else next.add(a)
-                  return next
-                })
-              }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                selectedAdapters.has(a)
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-              }`}
-            >
-              {selectedAdapters.has(a) && <Check className="w-3 h-3 inline mr-1" />}
-              {a}
-            </button>
-          ))}
-        </div>
-      )
+      const items: Adapter[] = msg.actionData || allAdapters
+      return renderAdapterGrid(items)
     }
 
     if (msg.action === 'keys') {
@@ -529,28 +614,8 @@ export function Composer() {
             <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Plug className="w-4 h-4 text-blue-400" /> MCP Adapters</h3>
             <button onClick={() => setActivePanel(null)} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
-          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto scrollbar-thin pr-1">
-            {allAdapters.map((a: string) => (
-              <button
-                key={a}
-                onClick={() => {
-                  setSelectedAdapters(prev => {
-                    const next = new Set(prev)
-                    if (next.has(a)) next.delete(a)
-                    else next.add(a)
-                    return next
-                  })
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  selectedAdapters.has(a)
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-slate-950 text-slate-400 border border-slate-700 hover:border-slate-600'
-                }`}
-              >
-                {selectedAdapters.has(a) && <Check className="w-3 h-3 inline mr-1" />}
-                {a}
-              </button>
-            ))}
+          <div className="max-h-80 overflow-y-auto scrollbar-thin pr-1">
+            {renderAdapterGrid(allAdapters)}
           </div>
         </div>
       )
@@ -649,7 +714,7 @@ export function Composer() {
               title="AI Provider Keys"
               className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${aiDropdownOpen ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">AI Keys</span>
               <ChevronDown className="w-3 h-3" />
             </button>
@@ -673,7 +738,7 @@ export function Composer() {
             title="Service Keys"
             className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${activePanel === 'keys' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
           >
-            <Plug className="w-3.5 h-3.5 text-blue-400" />
+            <Plug className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Keys</span>
             {getRequiredKeys().length > 0 && (
               <span className="ml-0.5 w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 text-[9px] flex items-center justify-center">{getRequiredKeys().length}</span>
@@ -684,7 +749,7 @@ export function Composer() {
             title="Deploy"
             className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${activePanel === 'deploy' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
           >
-            <Rocket className="w-3.5 h-3.5 text-rose-400" />
+            <Rocket className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Deploy</span>
           </button>
         </div>
@@ -697,26 +762,18 @@ export function Composer() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
         {messages.map(msg => (
           <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role !== 'user' && (
+            {msg.role !== 'user' && msg.role !== 'assistant' && (
               <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
-                {msg.role === 'assistant' ? <Bot className="w-4 h-4 text-emerald-400" /> : <Cpu className="w-4 h-4 text-slate-400" />}
+                <Cpu className="w-4 h-4 text-slate-400" />
               </div>
             )}
-            <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-200'} rounded-xl px-4 py-3`}>
+            <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-transparent text-white' : 'bg-slate-900 text-slate-200'} rounded-xl px-4 py-3`}>
               {renderMessage(msg)}
             </div>
-            {msg.role === 'user' && (
-              <div className="w-7 h-7 rounded-full bg-emerald-600/20 flex items-center justify-center shrink-0 mt-0.5">
-                <User className="w-4 h-4 text-emerald-400" />
-              </div>
-            )}
           </div>
         ))}
         {isTyping && (
           <div className="flex gap-3">
-            <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
-              <Bot className="w-4 h-4 text-emerald-400 animate-pulse" />
-            </div>
             <div className="bg-slate-900 rounded-xl px-4 py-3">
               <div className="flex gap-1">
                 <span className="w-2 h-2 rounded-full bg-slate-500 animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -735,7 +792,7 @@ export function Composer() {
             value={selectedModel}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
             title="Select Gemini model"
-            className="px-2 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-emerald-500/50 max-w-[180px] shrink-0"
+            className="px-2 py-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 focus:outline-none max-w-[180px] shrink-0"
           >
             {Object.entries(modelOptions).map(([label, id]) => (
               <option key={id} value={id} className="bg-slate-900 text-slate-300">Gemini {label}</option>
@@ -747,7 +804,7 @@ export function Composer() {
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleSend()}
             placeholder="Message Gemini... (try: show templates, use slack, compose, deploy)"
-            className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
+            className="flex-1 px-4 py-2.5 bg-slate-950 rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
           />
           <button
             onClick={handleSend}

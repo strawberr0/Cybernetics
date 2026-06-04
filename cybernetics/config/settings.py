@@ -93,6 +93,57 @@ class Settings(BaseSettings):
     # Linear
     linear_api_key: str = Field("", alias="LINEAR_API_KEY")
 
+    # Airtable
+    airtable_api_key: str = Field("", alias="AIRTABLE_API_KEY")
+    airtable_base_id: str = Field("", alias="AIRTABLE_BASE_ID")
+
+    # Asana
+    asana_token: str = Field("", alias="ASANA_TOKEN")
+
+    # Google Workspace (shared service account)
+    google_service_account_key: str = Field("", alias="GOOGLE_SERVICE_ACCOUNT_KEY")
+    google_service_account_path: str = Field("", alias="GOOGLE_SERVICE_ACCOUNT_PATH")
+    google_maps_api_key: str = Field("", alias="GOOGLE_MAPS_API_KEY")
+
+    # Confluence
+    confluence_url: str = Field("", alias="CONFLUENCE_URL")
+    confluence_api_token: str = Field("", alias="CONFLUENCE_API_TOKEN")
+
+    # Docker
+    docker_host: str = Field("unix:///var/run/docker.sock", alias="DOCKER_HOST")
+
+    # Jira
+    jira_url: str = Field("", alias="JIRA_URL")
+    jira_api_token: str = Field("", alias="JIRA_API_TOKEN")
+    jira_user_email: str = Field("", alias="JIRA_USER_EMAIL")
+
+    # n8n
+    n8n_api_key: str = Field("", alias="N8N_API_KEY")
+    n8n_url: str = Field("", alias="N8N_URL")
+
+    # PagerDuty
+    pagerduty_api_key: str = Field("", alias="PAGERDUTY_API_KEY")
+
+    # Redis
+    redis_url: str = Field("redis://localhost:6379", alias="REDIS_URL")
+
+    # QuickBooks
+    quickbooks_access_token: str = Field("", alias="QUICKBOOKS_ACCESS_TOKEN")
+    quickbooks_company_id: str = Field("", alias="QUICKBOOKS_COMPANY_ID")
+    quickbooks_sandbox: bool = Field(False, alias="QUICKBOOKS_SANDBOX")
+
+    # Shopify
+    shopify_access_token: str = Field("", alias="SHOPIFY_ACCESS_TOKEN")
+    shopify_shop_domain: str = Field("", alias="SHOPIFY_SHOP_DOMAIN")
+
+    # Snowflake
+    snowflake_account: str = Field("", alias="SNOWFLAKE_ACCOUNT")
+    snowflake_user: str = Field("", alias="SNOWFLAKE_USER")
+    snowflake_password: str = Field("", alias="SNOWFLAKE_PASSWORD")
+
+    # MongoDB (existing file, missing config)
+    mongodb_uri: str = Field("mongodb://localhost:27017", alias="MONGODB_URI")
+
     # Browser DevTools (CDP)
     browser_cdp_host: str = Field("localhost", alias="BROWSER_CDP_HOST")
     browser_cdp_port: int = Field(9222, alias="BROWSER_CDP_PORT")

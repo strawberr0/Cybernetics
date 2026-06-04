@@ -30,7 +30,12 @@ class AWSAdapter(MCPAdapter):
         self.register_tool("aws_cloudwatch_get_metrics", "Get CloudWatch metrics", {"namespace": {"type": "string"}, "metric_name": {"type": "string"}, "dimensions": {"type": "object"}, "period": {"type": "integer"}}, ["namespace", "metric_name"], self._cloudwatch_metrics)
 
     def _run_sync(self, fn, *args, **kwargs):
-        return asyncio.get_event_loop().run_in_executor(None, fn, *args, **kwargs)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop.run_in_executor(None, fn, *args, **kwargs)
 
     @circuit("aws", failure_threshold=5, recovery_timeout=60)
     async def _s3_list_buckets(self) -> List[Dict[str, Any]]:
@@ -71,9 +76,12 @@ class AWSAdapter(MCPAdapter):
 
     @circuit("aws", failure_threshold=5, recovery_timeout=60)
     async def _cloudwatch_metrics(self, namespace: str, metric_name: str, dimensions: Optional[Dict[str, str]] = None, period: int = 300) -> List[Dict[str, Any]]:
+        from datetime import datetime, timedelta, timezone
         cw = self.session.client("cloudwatch")
         dim_list = [{"Name": k, "Value": v} for k, v in (dimensions or {}).items()]
-        resp = await self._run_sync(cw.get_metric_statistics, Namespace=namespace, MetricName=metric_name, Dimensions=dim_list, StartTime="-PT1H", EndTime="now", Period=period, Statistics=["Average"])
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=1)
+        resp = await self._run_sync(cw.get_metric_statistics, Namespace=namespace, MetricName=metric_name, Dimensions=dim_list, StartTime=start, EndTime=end, Period=period, Statistics=["Average"])
         return resp.get("Datapoints", [])
 
     async def health(self) -> Dict[str, Any]:

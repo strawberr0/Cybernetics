@@ -6,6 +6,16 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+/* Consistent 8px border radius on all rounded UI elements */
+.rounded, .rounded-sm, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl {
+  border-radius: 8px !important;
+}
+
+/* Preserve circular elements */
+.rounded-full, [class*='rounded-full'] {
+  border-radius: 9999px !important;
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
 }

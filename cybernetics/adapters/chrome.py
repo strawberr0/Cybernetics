@@ -2,6 +2,7 @@
 
 from typing import Dict, Any
 from cybernetics.adapters.base import MCPAdapter
+from cybernetics.circuit.breaker import circuit
 from cybernetics.logging.logger import get_logger
 
 logger = get_logger("cybernetics.adapters.chrome")
@@ -101,6 +102,7 @@ class ChromeAdapter(MCPAdapter):
             self._pdf,
         )
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _navigate(self, url: str):
         try:
             from playwright.async_api import async_playwright
@@ -115,12 +117,14 @@ class ChromeAdapter(MCPAdapter):
             logger.error("chrome_navigate_failed", error=str(exc))
             raise
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _evaluate(self, expression: str):
         if not self._page:
             raise RuntimeError("No page open. Call chrome_navigate first.")
         result = await self._page.evaluate(expression)
         return {"result": result}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _screenshot(self, selector: str = "", full_page: bool = False):
         if not self._page:
             raise RuntimeError("No page open. Call chrome_navigate first.")
@@ -134,36 +138,43 @@ class ChromeAdapter(MCPAdapter):
         import base64
         return {"screenshot_base64": base64.b64encode(data).decode()}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _get_network(self, limit: int = 100):
         return {"requests": [], "note": "Network intercept requires CDP session setup"}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _get_console(self, level: str = ""):
         return {"logs": [], "note": "Console collection requires CDP session setup"}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _clear_cache(self):
         if not self._page:
             return {"cleared": False, "note": "No active page"}
         await self._page.context.clear_cookies()
         return {"cleared": True}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _set_viewport(self, width: int, height: int):
         if not self._page:
             raise RuntimeError("No page open")
         await self._page.set_viewport_size({"width": width, "height": height})
         return {"viewport": {"width": width, "height": height}}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _click(self, selector: str):
         if not self._page:
             raise RuntimeError("No page open")
         await self._page.click(selector)
         return {"clicked": selector}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _type(self, selector: str, text: str):
         if not self._page:
             raise RuntimeError("No page open")
         await self._page.fill(selector, text)
         return {"typed": text, "into": selector}
 
+    @circuit("chrome", failure_threshold=3, recovery_timeout=30)
     async def _pdf(self, path: str, format: str = "A4"):
         if not self._page:
             raise RuntimeError("No page open")

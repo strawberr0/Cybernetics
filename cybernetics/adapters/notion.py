@@ -4,6 +4,7 @@ import httpx
 from typing import Dict, Any
 from cybernetics.adapters.base import MCPAdapter
 from cybernetics.config.settings import settings
+from cybernetics.circuit.breaker import circuit
 from cybernetics.logging.logger import get_logger
 
 logger = get_logger("cybernetics.adapters.notion")
@@ -80,6 +81,7 @@ class NotionAdapter(MCPAdapter):
             self._get_database,
         )
 
+    @circuit("notion", failure_threshold=5, recovery_timeout=60)
     async def _search(self, query: str = "", filter_: str = ""):
         body = {"query": query}
         if filter_:
@@ -96,10 +98,12 @@ class NotionAdapter(MCPAdapter):
             return obj.get("title", [{}])[0].get("plain_text", "Untitled")
         return ""
 
+    @circuit("notion", failure_threshold=5, recovery_timeout=60)
     async def _get_page(self, page_id: str):
         r = await self._client.get(f"/pages/{page_id}")
         return r.json()
 
+    @circuit("notion", failure_threshold=5, recovery_timeout=60)
     async def _create_page(self, parent_id: str, title: str, content: str = ""):
         body = {
             "parent": {"page_id": parent_id},
@@ -110,6 +114,7 @@ class NotionAdapter(MCPAdapter):
         r = await self._client.post("/pages", json=body)
         return r.json()
 
+    @circuit("notion", failure_threshold=5, recovery_timeout=60)
     async def _query_database(self, database_id: str, filter_: dict = None, limit: int = 100):
         body = {"page_size": limit}
         if filter_:
@@ -118,10 +123,12 @@ class NotionAdapter(MCPAdapter):
         data = r.json()
         return {"results": data.get("results", [])}
 
+    @circuit("notion", failure_threshold=5, recovery_timeout=60)
     async def _update_page(self, page_id: str, properties: dict):
         r = await self._client.patch(f"/pages/{page_id}", json={"properties": properties})
         return r.json()
 
+    @circuit("notion", failure_threshold=5, recovery_timeout=60)
     async def _get_database(self, database_id: str):
         r = await self._client.get(f"/databases/{database_id}")
         return r.json()

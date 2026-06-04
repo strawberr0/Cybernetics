@@ -1,6 +1,6 @@
 """Postgres adapter — async via asyncpg + SQLAlchemy."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 import asyncpg
 from sqlalchemy import MetaData, Table, Column, String, Integer, DateTime, JSON, ForeignKey, Index, text
@@ -39,7 +39,7 @@ class PostgresAdapter(MCPAdapter):
             Column("action", String(2048)),
             Column("outcome", String(64)),
             Column("occurrence_count", Integer, default=1),
-            Column("last_seen", DateTime(timezone=True), default=datetime.utcnow),
+            Column("last_seen", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
             Column("metadata", JSONB, default=dict),
             Index("idx_patterns_signature", "signature"),
             Index("idx_patterns_last_seen", "last_seen"),
@@ -55,7 +55,7 @@ class PostgresAdapter(MCPAdapter):
             Column("issue_iid", String(64)),
             Column("judge_score", String(32)),
             Column("session_id", String(128)),
-            Column("created_at", DateTime(timezone=True), default=datetime.utcnow),
+            Column("created_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
             Column("payload", JSONB, default=dict),
             Index("idx_incidents_service_created", "service", "created_at"),
             Index("idx_incidents_session", "session_id"),
@@ -102,7 +102,7 @@ class PostgresAdapter(MCPAdapter):
                     issue_iid=str(incident.get("issue_iid", "")),
                     judge_score=str(incident.get("judge_score", "")),
                     session_id=incident.get("session_id", ""),
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                     payload=incident,
                 ).returning(self.incidents.c.id)
             )
