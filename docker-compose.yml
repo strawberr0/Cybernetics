@@ -1,0 +1,9 @@
+services:
+  composer:
+    build: .
+    environment:
+      PORT: ${COMPOSER_PORT:-4001}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "${COMPOSER_PORT:-4001}:${COMPOSER_PORT:-4001}"
+    restart: unless-stopped

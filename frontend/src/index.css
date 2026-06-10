@@ -217,6 +217,42 @@ body {
   line-height: 1.5;
 }
 
+.retro-card {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0) 38%),
+    linear-gradient(180deg, #eeeae4 0%, #d4cfc6 100%);
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-right: 2px solid #5d5850;
+  border-bottom: 2px solid #5d5850;
+  color: #080b12;
+  box-shadow: inset 0 0 0 1px #9c958b, 3px 3px 0 rgba(0,0,0,0.18);
+  transition: transform 80ms ease, filter 120ms ease, box-shadow 120ms ease;
+}
+
+.retro-card:hover {
+  filter: brightness(1.05);
+  transform: translate(-1px, -1px);
+  box-shadow: inset 0 0 0 1px #9c958b, 4px 4px 0 rgba(0,0,0,0.22);
+}
+
+.retro-card-selected {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0) 38%),
+    linear-gradient(180deg, #1c3eb6 0%, #09217f 100%);
+  border-top-color: #06124f;
+  border-left-color: #06124f;
+  border-right-color: #9bb0ff;
+  border-bottom-color: #9bb0ff;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px #4967d8, 3px 3px 0 rgba(0,0,0,0.35);
+}
+
+.retro-card-selected .retro-chip {
+  background: #fff1a8;
+  color: #071122;
+}
+
 .retro-chip {
   border: 1px solid #8d877e;
   background: #d8d4cd;
