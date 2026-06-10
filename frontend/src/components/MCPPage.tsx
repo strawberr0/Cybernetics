@@ -40,19 +40,11 @@ ${envBlock}
 
 const clients: ClientConfig[] = [
   {
-    id: 'claude-desktop',
-    label: 'Claude Desktop',
-    filename: '~/Library/Application Support/Claude/claude_desktop_config.json',
+    id: 'claude',
+    label: 'Claude',
+    filename: 'Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json  •  Code: ~/.claude.json (or `claude mcp add`)',
     language: 'json',
-    notes: 'macOS path shown. Linux: ~/.config/Claude/. Windows: %APPDATA%\\Claude\\.',
-    config: jsonStdio(baseEnv),
-  },
-  {
-    id: 'claude-code',
-    label: 'Claude Code',
-    filename: 'claude mcp add  (or ~/.claude.json)',
-    language: 'json',
-    notes: 'Use `claude mcp add cybernetics cybernetics-mcp` or paste into ~/.claude.json.',
+    notes: 'Same JSON schema across Claude Desktop and Claude Code. Desktop: Linux ~/.config/Claude/, Windows %APPDATA%\\Claude\\. Code: run `claude mcp add cybernetics cybernetics-mcp` or paste into ~/.claude.json.',
     config: jsonStdio(baseEnv),
   },
   {
