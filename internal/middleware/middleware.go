@@ -218,6 +218,44 @@ func BearerAuth(expected string, skipPrefix ...string) func(http.Handler) http.H
 	}
 }
 
+// TokenVerifier is the minimal interface a token verifier must implement to
+// plug into OIDCAuth — kept narrow so handlers and tests can substitute fakes
+// without dragging in the full oidc package.
+type TokenVerifier interface {
+	Verify(ctx context.Context, token string) (any, error)
+}
+
+// OIDCAuth enforces Bearer JWT tokens via a TokenVerifier. Returns 401 on any
+// verification failure. skipPrefix paths bypass auth (e.g. /healthz, /readyz).
+// If v is nil, auth is disabled and next is returned unchanged — log a startup
+// warning in that case.
+func OIDCAuth(v TokenVerifier, skipPrefix ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		if v == nil {
+			return next
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for _, p := range skipPrefix {
+				if strings.HasPrefix(r.URL.Path, p) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			h := r.Header.Get("Authorization")
+			const prefix = "Bearer "
+			if len(h) <= len(prefix) || !strings.EqualFold(h[:len(prefix)], prefix) {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			if _, err := v.Verify(r.Context(), h[len(prefix):]); err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // ── Rate limiter (per-IP token bucket) ───────────────────────────────
 
 type bucket struct {

@@ -171,6 +171,7 @@ export function Composer() {
   const [activePanel, setActivePanel] = useState<'templates' | 'adapters' | 'keys' | 'deploy' | 'settings' | null>(null)
   const initialSettings = useMemo(() => loadSettings(), [])
   const [geminiKey, setGeminiKey] = useState(initialSettings.geminiKey)
+  const [serverConfig, setServerConfig] = useState<{ server_has_gemini_key: boolean; auth_mode: string; version?: string } | null>(null)
   const [sessions, setSessions] = useState<Session[]>(() => loadSessions())
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => generateId())
   const [sessionSearch, setSessionSearch] = useState('')
@@ -191,6 +192,10 @@ export function Composer() {
         setTemplates(data.templates)
         setAllAdapters(data.adapters)
       })
+    fetch('/api/config')
+      .then(r => r.ok ? r.json() : null)
+      .then(setServerConfig)
+      .catch(() => setServerConfig(null))
   }, [])
 
   useEffect(() => {
@@ -783,16 +788,38 @@ export function Composer() {
           {panelHeader(<Settings className="w-8 h-8 text-[#58ff3e]" />, 'Settings', 'Preferences & API keys')}
           <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
             <div className="max-w-[820px] space-y-6">
-              <section className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-wider">Gemini API Key</h3>
-                <input
-                  type="text"
-                  value={geminiKey}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setGeminiKey(e.target.value); persistSettings({ geminiKey: e.target.value }) }}
-                  placeholder="AIzaSy…"
-                  className="retro-input w-full px-3 py-2 text-base font-bold"
-                />
-                <p className="text-xs font-bold opacity-70">Stored locally in your browser. Used as fallback when the server has no GEMINI_API_KEY.</p>
+              {serverConfig?.server_has_gemini_key ? (
+                <section className="space-y-2">
+                  <h3 className="text-sm font-black uppercase tracking-wider">Gemini API Key</h3>
+                  <div className="border-2 border-[#5d5850] bg-[#dedad3] p-4 shadow-[3px_3px_0_rgba(0,0,0,0.25)]">
+                    <p className="text-sm font-bold">
+                      <span className="inline-block h-3 w-3 bg-[#39e94c] mr-2 align-middle" />
+                      Server has a managed Gemini key. Client-side keys are disabled in this deployment.
+                    </p>
+                  </div>
+                </section>
+              ) : (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-black uppercase tracking-wider">Gemini API Key</h3>
+                  <input
+                    type="text"
+                    value={geminiKey}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setGeminiKey(e.target.value); persistSettings({ geminiKey: e.target.value }) }}
+                    placeholder="AIzaSy…"
+                    className="retro-input w-full px-3 py-2 text-base font-bold"
+                  />
+                  <p className="text-xs font-bold opacity-70">Stored locally in your browser. Used as fallback when the server has no GEMINI_API_KEY. <strong>Not recommended for production.</strong></p>
+                </section>
+              )}
+              <section className="space-y-2">
+                <h3 className="text-sm font-black uppercase tracking-wider">Auth Mode</h3>
+                <p className="text-sm font-bold opacity-80">
+                  {serverConfig?.auth_mode === 'oidc' && 'OIDC (JWT verification)'}
+                  {serverConfig?.auth_mode === 'bearer' && 'Bearer token'}
+                  {serverConfig?.auth_mode === 'none' && 'None (dev mode)'}
+                  {!serverConfig && 'unknown'}
+                  {serverConfig?.version && <span className="opacity-60"> · v{serverConfig.version}</span>}
+                </p>
               </section>
               <section className="space-y-3">
                 <h3 className="text-sm font-black uppercase tracking-wider">Default Model</h3>

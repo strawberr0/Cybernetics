@@ -14,7 +14,16 @@ import (
 	"time"
 
 	"github.com/strawberr0/cybernetics/internal/middleware"
+	"github.com/strawberr0/cybernetics/internal/oidc"
 )
+
+// oidcAdapter bridges *oidc.Verifier to middleware.TokenVerifier (which
+// returns `any` to avoid an import cycle in the middleware package).
+type oidcAdapter struct{ v *oidc.Verifier }
+
+func (a oidcAdapter) Verify(ctx context.Context, token string) (any, error) {
+	return a.v.Verify(ctx, token)
+}
 
 // build-time metadata injected via -ldflags
 var (
@@ -546,6 +555,32 @@ If they want to deploy, use action "show_deploy".
 	})
 }
 
+// ── /api/config ───────────────────────────────────────────────────────
+
+// apiConfig advertises non-secret server capabilities to the frontend so it
+// can hide developer-only UI in production (e.g. the localStorage Gemini key
+// input when the server already has a key).
+func apiConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"server_has_gemini_key": os.Getenv("GEMINI_API_KEY") != "",
+		"auth_mode":             authMode(),
+		"version":               buildVersion,
+		"commit":                buildCommit,
+	})
+}
+
+func authMode() string {
+	switch {
+	case os.Getenv("OIDC_ISSUER") != "" && os.Getenv("OIDC_AUDIENCE") != "":
+		return "oidc"
+	case os.Getenv("AUTH_TOKEN") != "":
+		return "bearer"
+	default:
+		return "none"
+	}
+}
+
 // ── Health probes ─────────────────────────────────────────────────────
 
 // healthz is a liveness probe — succeeds if the process is responsive.
@@ -612,6 +647,18 @@ func main() {
 		port = "8080" // Cloud Run convention; override via $PORT.
 	}
 	authToken := os.Getenv("AUTH_TOKEN")
+	oidcIssuer := strings.TrimSpace(os.Getenv("OIDC_ISSUER"))
+	oidcAudience := strings.TrimSpace(os.Getenv("OIDC_AUDIENCE"))
+	var oidcMW func(http.Handler) http.Handler
+	if oidcIssuer != "" && oidcAudience != "" {
+		v, err := oidc.NewVerifier(oidc.Config{Issuer: oidcIssuer, Audience: oidcAudience})
+		if err != nil {
+			logger.Error("oidc verifier init failed", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		oidcMW = middleware.OIDCAuth(oidcAdapter{v: v}, "/healthz", "/readyz")
+		logger.Info("OIDC enabled", slog.String("issuer", oidcIssuer), slog.String("audience", oidcAudience))
+	}
 	corsAllowlist := []string{}
 	if raw := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS")); raw != "" {
 		corsAllowlist = strings.Split(raw, ",")
@@ -630,6 +677,7 @@ func main() {
 
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/api/templates", listTemplates)
+	apiMux.HandleFunc("/api/config", apiConfig)
 	apiMux.Handle("/api/compose", middleware.MaxBody(maxBody)(http.HandlerFunc(composeAgent)))
 	apiMux.Handle("/api/deploy", middleware.MaxBody(maxBody)(http.HandlerFunc(deployAgent)))
 	apiMux.Handle("/api/chat", middleware.MaxBody(maxBody)(http.HandlerFunc(chatAgent)))
@@ -637,9 +685,14 @@ func main() {
 	fs := http.FileServer(http.Dir("./static"))
 	rl := middleware.NewRateLimiter(rlBurst, rlRate)
 
+	// Auth precedence: OIDC > Bearer > none (dev).
+	authMW := middleware.BearerAuth(authToken, "/healthz", "/readyz")
+	if oidcMW != nil {
+		authMW = oidcMW
+	}
 	mux.Handle("/api/", middleware.Chain(
 		apiMux,
-		middleware.BearerAuth(authToken, "/healthz", "/readyz"),
+		authMW,
 		rl.Middleware,
 	))
 	mux.Handle("/", fs)
