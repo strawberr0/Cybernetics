@@ -805,7 +805,7 @@ documented in [`AGENTS.md`](AGENTS.md) (project-wide AI-agent guide) and
 **Example compose request:**
 
 ```bash
-curl -X POST http://localhost:3001/api/compose \
+curl -X POST http://localhost:4001/api/compose \
   -H "Content-Type: application/json" \
   -d '{
     "template": "sentinel",
