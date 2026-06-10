@@ -131,7 +131,7 @@ See the [Quick Start](#quick-start-docker-compose) above for the composer; secti
 
 ## 3. Cybernetics MCP Server — Usage Guide
 
-Cybernetics is a **first-class MCP server** that exposes its adapters and agent templates as tools over the Model Context Protocol. Any MCP client (Claude Desktop, Cursor, Windsurf, etc.) can connect to it.
+Cybernetics is a **first-class MCP server** that exposes its adapters and agent templates as tools over the Model Context Protocol. Any MCP client (Antigravity, Claude Code, Cursor, Devin, Vims etc.) can connect to it.
 
 ### 3.1 What Is the Cybernetics MCP Server?
 
