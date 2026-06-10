@@ -181,7 +181,6 @@ var adapters = []Adapter{
 	{Name: "github", Description: "Repos, issues, PRs, Actions — full GitHub API", Source: "https://github.com/github/github-mcp-server"},
 	{Name: "gitlab", Description: "Git repos & CI/CD — issues, MRs, pipelines", Source: "https://docs.gitlab.com/user/gitlab_duo/model_context_protocol/mcp_server/"},
 	{Name: "jira", Description: "Agile project management — issues, sprints, boards", Source: "https://github.com/atlassian/atlassian-mcp-server"},
-	{Name: "kubernetes", Description: "Kubernetes cluster ops — pods, services, deployments", Source: "https://github.com/kubernetes/mcp"},
 	{Name: "linear", Description: "Issue tracking — teams, issues, projects", Source: "https://linear.app/docs/mcp"},
 	{Name: "mongodb", Description: "Document database — CRUD, aggregation, indexing", Source: "https://www.mongodb.com/docs/mcp-server/get-started/"},
 	{Name: "n8n", Description: "Workflow automation — triggers, nodes, executions", Source: "https://docs.n8n.io/advanced-ai/mcp/accessing-n8n-mcp-server/"},
