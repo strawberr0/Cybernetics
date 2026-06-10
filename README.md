@@ -236,19 +236,80 @@ These are **connection settings** that your platform team configures once:
 
 ### 4.4 Secret Keys (Injected per User / Team)
 
-These are the **only** values users typically need to provide:
+Set only the keys for the adapters you actually use. Adapters with no key
+required (`browser`, `chrome`, `firefox`, `brave`, `docker`, `postgres`) are
+omitted; they rely on preset connection settings from § 4.3.
+
+#### Core
 
 | Variable | Adapter | Where to get it |
 |---|---|---|
-| `BROKER_API_KEY` | Cybernetics | Your admin issues this |
+| `BROKER_API_KEY` | Cybernetics broker | Your admin issues this |
+| `GEMINI_API_KEY` | Composer (Gemini) | <https://aistudio.google.com/apikey> |
+
+#### Observability & Incident
+
+| Variable | Adapter | Where to get it |
+|---|---|---|
 | `DYNATRACE_API_TOKEN` | Dynatrace | Settings → Access tokens |
+| `DATADOG_API_KEY` / `DATADOG_APP_KEY` | Datadog | Org Settings → API Keys / Application Keys |
 | `ELASTIC_API_KEY` | Elastic | Stack Management → API Keys |
+| `PAGERDUTY_API_KEY` | PagerDuty | Profile → User Settings → API Access |
+| `ARIZE_API_KEY` | Arize | Settings → API Keys |
+
+#### Source Control & CI/CD
+
+| Variable | Adapter | Where to get it |
+|---|---|---|
+| `GITHUB_TOKEN` | GitHub | Settings → Developer settings → PAT (fine-grained) |
 | `GITLAB_TOKEN` | GitLab | User Settings → Access Tokens |
-| `GITHUB_TOKEN` | GitHub | Settings → Developer settings → PAT |
-| `SLACK_BOT_TOKEN` | Slack | api.slack.com/apps → OAuth & Permissions |
-| `DATADOG_API_KEY` / `APP_KEY` | Datadog | Organization Settings → API Keys |
-| `NOTION_TOKEN` | Notion | notion.so/my-integrations |
+| `VERCEL_TOKEN` | Vercel | Account Settings → Tokens |
+
+#### Cloud Infrastructure
+
+| Variable | Adapter | Where to get it |
+|---|---|---|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | AWS | IAM → Users → Security credentials |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare | My Profile → API Tokens (Custom or "Edit zone") |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | All `google-*` adapters (25 services) | GCP → IAM → Service Accounts → Keys → Create (JSON) |
+
+#### Productivity & Workspace
+
+| Variable | Adapter | Where to get it |
+|---|---|---|
+| `SLACK_BOT_TOKEN` | Slack | api.slack.com/apps → OAuth & Permissions (`xoxb-…`) |
+| `NOTION_TOKEN` | Notion | <https://www.notion.so/my-integrations> |
+| `CONFLUENCE_API_TOKEN` | Confluence | id.atlassian.com → Security → API tokens |
+| `JIRA_API_TOKEN` | Jira | id.atlassian.com → Security → API tokens |
+| `ASANA_TOKEN` | Asana | Profile Settings → Apps → Manage Developer Apps → PAT |
 | `LINEAR_API_KEY` | Linear | Settings → API |
+| `AIRTABLE_API_KEY` | Airtable | airtable.com/create/tokens |
+
+#### Data & Databases
+
+| Variable | Adapter | Where to get it |
+|---|---|---|
+| `MONGODB_URI` | MongoDB | Atlas → Database Access → connection string |
+| `REDIS_URL` | Redis | `redis://:<pass>@host:port/db` |
+| `SUPABASE_KEY` | Supabase | Project Settings → API → `service_role` key |
+| `SNOWFLAKE_ACCOUNT` / `SNOWFLAKE_USER` / `SNOWFLAKE_PASSWORD` | Snowflake | Account admin |
+| `FIVETRAN_API_KEY` / `FIVETRAN_API_SECRET` | Fivetran | Account → API Config |
+
+#### Commerce & Finance
+
+| Variable | Adapter | Where to get it |
+|---|---|---|
+| `STRIPE_API_KEY` | Stripe | Developers → API Keys (use restricted keys in prod) |
+| `SHOPIFY_ACCESS_TOKEN` / `SHOPIFY_SHOP_DOMAIN` | Shopify | Admin → Apps → Develop apps → Access token |
+| `QUICKBOOKS_ACCESS_TOKEN` / `QUICKBOOKS_COMPANY_ID` | QuickBooks | Intuit Developer → My Apps → OAuth 2.0 Playground |
+
+#### Automation
+
+| Variable | Adapter | Where to get it |
+|---|---|---|
+| `N8N_API_KEY` | n8n | Settings → API → Create API key |
+
+> **No-key adapters** (preset config from § 4.3 only): `airtable` connection, `brave`, `browser`, `chrome`, `docker`, `firefox`, `postgres`.
 
 ### 4.5 Example: Using Cybernetics from Claude Desktop
 
