@@ -1,8 +1,0 @@
-{
-  "mcp": {
-    "aiwg": {
-      "type": "local",
-      "command": ["aiwg", "mcp", "serve"]
-    }
-  }
-}

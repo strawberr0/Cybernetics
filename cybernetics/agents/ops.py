@@ -12,7 +12,7 @@ logger = get_logger("cybernetics.agents.ops")
 class OpsAgent(AgentTemplate):
     name = "ops"
     description = "OpsAgent: observe → diagnose → act → notify → learn"
-    adapters = ["datadog", "slack", "kubernetes", "github", "linear", "postgres"]
+    adapters = ["datadog", "slack", "github", "linear", "postgres"]
 
     def __init__(self, registry):
         super().__init__(registry)
@@ -50,7 +50,7 @@ class OpsAgent(AgentTemplate):
             "query": f"avg:{service}.request.errors{{*}}",
             "from": "now-1h",
         })
-        pods = await self.registry.execute("kubernetes", "k8s_list_pods", {
+        pods = await self.registry.execute("k8s_list_pods", {
             "label_selector": f"app={service}",
         })
         return {
@@ -73,12 +73,12 @@ class OpsAgent(AgentTemplate):
         actions = []
         if "crash loop" in diagnosis.lower():
             # Restart deployment
-            r = await self.registry.execute("kubernetes", "k8s_restart_deployment", {"name": service})
+            r = await self.registry.execute("k8s_restart_deployment", {"name": service})
             if r.success:
                 actions.append("restarted_deployment")
         if "memory" in diagnosis.lower():
             # Scale up
-            r = await self.registry.execute("kubernetes", "k8s_scale_deployment", {"name": service, "replicas": 5})
+            r = await self.registry.execute("k8s_scale_deployment", {"name": service, "replicas": 5})
             if r.success:
                 actions.append("scaled_deployment")
         # Create Linear ticket for tracking

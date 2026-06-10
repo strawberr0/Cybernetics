@@ -81,8 +81,6 @@ class Settings(BaseSettings):
 
     # Kubernetes
     kubeconfig_context: str = Field("", alias="KUBECONFIG_CONTEXT")
-    kubernetes_namespace: str = Field("default", alias="KUBERNETES_NAMESPACE")
-    kubernetes_service_host: str = Field("", alias="KUBERNETES_SERVICE_HOST")
 
     # Slack
     slack_bot_token: str = Field("", alias="SLACK_BOT_TOKEN")

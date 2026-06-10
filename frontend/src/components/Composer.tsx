@@ -128,7 +128,6 @@ const envMap: Record<string, string[]> = {
   'google-spanner': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
   'google-workspace': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
   jira: ['JIRA_API_TOKEN'],
-  kubernetes: ['KUBECONFIG'],
   linear: ['LINEAR_API_KEY'],
   mongodb: ['MONGODB_URI'],
   n8n: ['N8N_API_KEY'],
