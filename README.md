@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Composable Meta-MCP for Google Cloud Agents</strong><br/>
-  <sub>v0.1.1  •  58 Adapters  •  153+ Tools  •  Agent Composer  •  A2A/ERC-8004 Ready</sub>
+  <sub>v0.1.1  •  56 Adapters  •  Agent Composer  •  A2A/ERC-8004 Ready</sub>
 </p>
 
 <p align="center">
@@ -66,7 +66,14 @@ cd frontend && npm install && npm run dev
 
 ## 1. Executive Summary
 
-Cybernetics is a **composable Model Context Protocol (MCP) meta-broker** designed for Google Cloud enterprise environments. It aggregates 57 third-party MCP servers into a unified, authenticated, auditable control plane and exposes composable **agent templates** that execute multi-phase autonomous workflows on top of that plane.
+Cybernetics is a **composable Model Context Protocol (MCP) meta-broker** designed for Google Cloud enterprise environments. It aggregates 56 third-party MCP servers into a unified, authenticated, auditable control plane and exposes composable **agent templates** that execute multi-phase autonomous workflows on top of that plane.
+
+The project ships two surfaces:
+
+1. **Cybernetics MCP broker** — a single stdio-based MCP peer (`cybernetics-mcp`) that aggregates 56 adapters into one tool namespace. Drop it into Claude, Cursor, Codex, Antigravity, Devin, or Vims and you get every tool the broker advertises.
+2. **Composer service** — the Go HTTP + React UI in this repo. Generates Python agent code via Gemini, serves the public catalog at `/api/templates`, and is the operational dashboard.
+
+See the [Quick Start](#quick-start-docker-compose) above for the composer; section 4 for the broker.
 
 ### Key Differentiators
 - **Zero Trust by default** — every request authenticated, no anonymous endpoints beyond health probes
@@ -91,9 +98,12 @@ Cybernetics is a **composable Model Context Protocol (MCP) meta-broker** designe
 | Async blocking I/O | All network clients use `httpx.AsyncClient`, `AsyncIOMotorClient`, `AsyncElasticsearch`, `asyncpg` | `pytest-asyncio` coverage |
 
 ### Compliance Mapping
-- **NIST 800-53:** AC-3 (access enforcement), AU-6 (audit review), SC-28 (encryption at rest via Cloud SQL)
-- **FedRAMP Moderate:** Covered via Cloud Run + Cloud SQL + Secret Manager
-- **SOC 2 Type II:** Audit logs in Cloud Logging; structured JSON format
+
+Full control-by-control coverage is in [`docs/CONTROLS_NIST_800_53.md`](docs/CONTROLS_NIST_800_53.md) (38 controls across 9 NIST 800-53 Rev 5 families, 66% fully implemented). Highlights:
+
+- **NIST 800-53 Rev 5:** AC-3, AU-2/3/10, CM-2/6/7/8, SC-5/7/8/13/17, SI-7/10/11 — all ✅. Full STRIDE analysis in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+- **FedRAMP Moderate:** in-container controls covered; deployment controls (TLS, IdP, log storage) are operator-supplied via Cloud Run + Cloud SQL + Secret Manager.
+- **SOC 2 Type II:** structured JSON audit logs with `X-Request-ID` correlation, captured by Cloud Logging.
 
 ---
 
@@ -294,7 +304,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 
 ---
 
-## 5. Adapter Catalog (58 Adapters, 153+ Tools)
+## 5. Adapter Catalog (56 Adapters)
 
 ### Non-Google Adapters
 
@@ -575,26 +585,11 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 
 ---
 
-## 7. Deployment
+## 7. Production Deployment
 
-### 7.1 Local Development
+For **local development** see the [Quick Start (Docker Compose)](#quick-start-docker-compose) at the top of this document — that's the canonical entry point for both the composer service and the broker.
 
-```bash
-# 1. Clone
-gh repo clone strawberr0/cybernetics
-cd cybernetics
-
-# 2. Create local secrets (never commit .env)
-cp .env.example .env.local
-# Edit .env.local with your keys
-
-# 3. Install + run
-pip install -e ".[dev]"
-export $(cat .env.local | xargs)
-python -m uvicorn cybernetics.broker.server:app --host 0.0.0.0 --port 8080
-```
-
-### 7.2 GCP Production (Cloud Run)
+### 7.1 GCP Production (Cloud Run)
 
 Prerequisites:
 - GCP project with Cloud Run, Cloud SQL (Postgres 15+), Secret Manager enabled
@@ -610,12 +605,12 @@ gcloud secrets create postgres-dsn --data-file=<(echo -n "postgresql+asyncpg://u
 gcloud builds submit --config cloudbuild.yaml
 
 # 3. Verify
-gcloud run services describe cybernetics-broker --region=us-central1
-curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-  https://<URL>/health
+gcloud run services describe cybernetics-composer --region=us-central1
+curl https://<URL>/healthz
+curl https://<URL>/readyz
 ```
 
-### 7.3 Cloud SQL Migration
+### 7.2 Cloud SQL Migration
 
 ```bash
 # Apply schema
@@ -623,17 +618,23 @@ psql "host=/cloudsql/PROJECT:REGION:INSTANCE dbname=sentinel user=postgres" \
   -f migrations/001_init.sql
 ```
 
-### 7.4 Hardening Checklist
+### 7.3 Hardening Checklist
 
-- [ ] Cloud Run `--no-allow-unauthenticated` enforced
-- [ ] Cloud Armor WAF configured in front of Cloud Run
+The composer image already enforces the in-container half (distroless `nonroot`,
+read-only FS, `cap_drop: ALL`, cosign-signed, SBOM-attested). The deployment
+half is the operator's responsibility:
+
+- [ ] Cloud Run `--no-allow-unauthenticated` enforced (or OIDC via `OIDC_ISSUER`/`OIDC_AUDIENCE`)
+- [ ] Cloud Armor WAF + rate-limit policy in front of Cloud Run
 - [ ] VPC-SC perimeter restricts egress to approved APIs only
 - [ ] Cloud SQL private IP + IAM database authentication
 - [ ] Secret Manager rotation policy (90 days)
 - [ ] Cloud Audit Logs enabled for `data_access`, `admin_activity`
-- [ ] `pip-audit` run in CI pipeline before container build
+- [ ] `govulncheck` + `trivy fs` gates pass in CI (`.github/workflows/composer-security.yml`)
 - [ ] Container scanning via Artifact Registry + Container Analysis
-- [ ] DDoS protection via Cloud Armor rate limiting
+
+Full control mapping in [`docs/CONTROLS_NIST_800_53.md`](docs/CONTROLS_NIST_800_53.md);
+threat model in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ---
 
@@ -643,7 +644,10 @@ psql "host=/cloudsql/PROJECT:REGION:INSTANCE dbname=sentinel user=postgres" \
 
 ```bash
 # Liveness
-curl -H "Authorization: Bearer $API_KEY" https://<URL>/health
+curl https://<URL>/healthz
+
+# Readiness (also verifies GEMINI_API_KEY presence)
+curl https://<URL>/readyz
 
 # Tool discovery
 curl -H "Authorization: Bearer $API_KEY" https://<URL>/mcp/tools
@@ -684,7 +688,7 @@ gcloud logging read "jsonPayload.breaker=dynatrace AND severity>=ERROR" --limit=
 
 # 3. Manual reset (if operator-verified)
 # Restart Cloud Run revision to reset breaker state
-gcloud run services update cybernetics-broker --region=us-central1
+gcloud run services update cybernetics-composer --region=us-central1
 ```
 
 ---
@@ -823,7 +827,7 @@ resolver.negotiate([{"id": "sentinel_detect"}, {"id": "unknown_cap"}])
 
 ---
 
-## 14. Extending Cybernetics
+## 13. Extending Cybernetics
 
 Cybernetics is designed to be easily extensible. Adapters placed in `cybernetics/adapters/` are **automatically discovered and registered** at startup via `auto_discover()`. To add a new MCP adapter, follow these steps:
 
@@ -886,11 +890,10 @@ Run the integration tests and ensure your new adapter is listed in `/mcp/tools`.
 
 ---
 
-## 15. License & Attribution
+## 14. License & Attribution
 
 Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
-See `LICENSE` for the full text and `NOTICE` for third-party attributions
-(including the inherited AIWG components, originally MIT-licensed).
+See `LICENSE` for the full text and `NOTICE` for third-party attributions.
 
 Network use is distribution under the AGPL: anyone who interacts with this
 software over a network is entitled to receive the corresponding source.
