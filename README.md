@@ -244,7 +244,7 @@ omitted; they rely on preset connection settings from § 4.3.
 
 | Variable | Adapter | Where to get it |
 |---|---|---|
-| `BROKER_API_KEY` | Cybernetics broker | Your admin issues this |
+| `BROKER_API_KEY` | Cybernetics broker | Self-generated shared secret — `openssl rand -hex 32`. Set the same value on the broker process and in every MCP client config. |
 | `GEMINI_API_KEY` | Composer (Gemini) | <https://aistudio.google.com/apikey> |
 
 #### Observability & Incident
@@ -311,24 +311,28 @@ omitted; they rely on preset connection settings from § 4.3.
 
 > **No-key adapters** (preset config from § 4.3 only): `airtable` connection, `brave`, `browser`, `chrome`, `docker`, `firefox`, `postgres`.
 
-### 4.5 Example: Using Cybernetics from Claude Desktop
+### 4.5 Example: Using Cybernetics from Antigravity
 
-**Step 1:** Install the Cybernetics MCP package:
+Google Antigravity inherits VS Code's MCP wiring under the `mcp.servers` key.
+
+**Step 1:** Install the broker:
 
 ```bash
 pip install cybernetics-mcp
 ```
 
-**Step 2:** Add to `claude_desktop_config.json`:
+**Step 2:** Add to Antigravity's `settings.json` (Command Palette → *Preferences: Open User Settings (JSON)*):
 
 ```json
 {
-  "mcpServers": {
+  "mcp.servers": {
     "cybernetics": {
       "command": "cybernetics-mcp",
+      "args": [],
       "env": {
-        "BROKER_API_KEY": "your-key",
-        "POSTGRES_DSN": "postgresql+asyncpg://user:pass@localhost/sentinel",
+        "BROKER_API_KEY": "$(openssl rand -hex 32)",
+        "GEMINI_API_KEY": "<aistudio-key>",
+        "POSTGRES_DSN": "postgresql+asyncpg://user:pass@localhost/cybernetics",
         "DYNATRACE_BASE_URL": "https://xyz.live.dynatrace.com",
         "DYNATRACE_API_TOKEN": "dt0c01.xxx"
       }
@@ -337,35 +341,21 @@ pip install cybernetics-mcp
 }
 ```
 
-**Step 3:** Ask Claude to use it:
+**Step 3:** Ask the agent to use it:
 
-> "Check Dynatrace for active problems on the api service, then post a summary to Slack #incidents"
+> "Check Dynatrace for active problems on the `api` service, then post a summary to Slack `#incidents`."
 
-Claude will:
-1. Call `tools/list` and see `dynatrace_get_problems` + `slack_post_message`
-2. Call `dynatrace_get_problems` with `{ "service": "api" }`
-3. Call `slack_post_message` with the results
+The Antigravity agent will:
+1. Call `tools/list` and see `dynatrace_get_problems` + `slack_post_message`.
+2. Call `dynatrace_get_problems` with `{ "service": "api" }`.
+3. Call `slack_post_message` with the results.
 
-### 4.6 Example: Using Cybernetics from Cursor
+### 4.6 Other clients
 
-Cursor supports MCP servers via `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "cybernetics": {
-      "command": "cybernetics-mcp",
-      "env": { "BROKER_API_KEY": "...", "POSTGRES_DSN": "..." }
-    }
-  }
-}
-```
-
-In Cursor's chat, type `@cybernetics` and ask:
-
-> "Run the sentinel agent to check for production issues"
-
-Cursor will invoke `sentinel_run` and stream the multi-phase results.
+The broker speaks vanilla MCP — same JSON schema in **Claude Desktop / Claude Code**
+(`mcpServers`), **Cursor** (`.cursor/mcp.json`), **Codex CLI** (`~/.codex/config.toml`, TOML),
+**Devin** (dashboard), and **Vims** (`vims_mcp_add_server`). The Composer UI's
+MCP Control Plane page renders copy-pasteable boilerplate for each.
 
 ### 4.7 Protocol Details
 
