@@ -85,17 +85,33 @@ See the [Quick Start](#quick-start-docker-compose) above for the composer; secti
 
 ## 2. Threat Model & Security Posture
 
+Full STRIDE analysis lives in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md). Per-surface highlights:
+
+### Composer service (Go, `cmd/composer/`)
+
 | Threat | Mitigation | Verification |
 |---|---|---|
-| Secret exfiltration from Docker image | Multi-stage build; `.env` excluded; secrets via `--set-secrets` | `docker inspect` shows no `Env` secrets |
+| Anonymous API access | `BearerAuth` (constant-time) or `OIDCAuth` (RS256 JWT) | `internal/middleware/middleware_test.go`, `internal/oidc/oidc_test.go` |
+| CSRF / hostile origin | Strict CORS allowlist; no wildcard echo | `TestCORS_AllowlistOnly` |
+| Body-size DoS | `MaxBody` (1 MiB default, env-tunable) | `TestMaxBody_Enforces413OnOversize` |
+| Per-IP request flood | Token-bucket rate limiter | `TestRateLimiter_*` |
+| Panic stack-trace leak | `Recover` middleware → generic 500 | `TestRecover_TurnsPanicInto500` |
+| Container escape | Distroless `nonroot`, `cap_drop: ALL`, `no-new-privileges`, read-only FS | `Dockerfile`, `docker-compose.yml` |
+| Supply-chain compromise | stdlib-only Go, cosign keyless sign, CycloneDX SBOM attest, govulncheck + Trivy CI gates | `.github/workflows/composer-security.yml` |
+| Missing audit trail | `slog` JSON with `X-Request-ID` correlation on every request | `internal/middleware/middleware.go` |
+
+### Broker service (Python, `cybernetics/broker/`)
+
+| Threat | Mitigation | Verification |
+|---|---|---|
+| Secret exfiltration from image | Multi-stage build; `.env` excluded; secrets via `--set-secrets` | `docker inspect` shows no `Env` secrets |
 | Unauthorized broker access | `--no-allow-unauthenticated` + Identity-Aware Proxy (IAP) | `gcloud run services describe` |
 | Timing attacks on API key | `hmac.compare_digest` + random delay on mismatch | Static analysis via `bandit` |
 | DQL / SQL injection | Regex allow-list sanitization (`_sanitize_dql`) + parameterized queries | Unit test `test_dql_sanitization` |
 | SSRF via adapter callbacks | URL prefix validation, no redirects, `httpx` timeout caps | Respx mock tests |
 | ReDoS in regex filters | Bounded regex (`^...$`), no `.*` backtracking | Code review |
 | Credential leakage in logs | `Guard` sentinel blocks keys named `password`, `secret`, `token` | `test_guard_blocks_sensitive` |
-| Supply-chain compromise | Pinned hashes in `requirements.txt`; `pip-audit` in CI | SBOM generation in build |
-| Async blocking I/O | All network clients use `httpx.AsyncClient`, `AsyncIOMotorClient`, `AsyncElasticsearch`, `asyncpg` | `pytest-asyncio` coverage |
+| Async blocking I/O | All clients are `httpx.AsyncClient`, `asyncpg`, etc. | `pytest-asyncio` coverage |
 
 ### Compliance Mapping
 
@@ -661,7 +677,26 @@ curl -H "Authorization: Bearer $API_KEY" https://<URL>/mcp/sse
 
 ### 8.2 Structured Logging
 
-All logs are JSON, emitted to `stdout`, captured by Cloud Logging:
+Both surfaces emit JSON to `stdout`, captured by Cloud Logging.
+
+**Composer (Go, `slog`)** — one line per HTTP request, correlation via `X-Request-ID`:
+
+```json
+{
+  "time": "2026-05-19T14:32:01Z",
+  "level": "INFO",
+  "msg": "http.request",
+  "request_id": "3f8a1c2b9e0d",
+  "method": "POST",
+  "path": "/api/compose",
+  "status": 200,
+  "bytes": 4823,
+  "duration": 612,
+  "remote": "10.0.0.42"
+}
+```
+
+**Broker (Python)** — one line per tool invocation, correlation via `correlation_id`:
 
 ```json
 {
@@ -671,7 +706,7 @@ All logs are JSON, emitted to `stdout`, captured by Cloud Logging:
   "adapter": "dynatrace",
   "tool": "dynatrace_get_problems",
   "latency_ms": 145,
-  "session_id": "a1b2c3...",
+  "session_id": "a1b2c3",
   "correlation_id": "req-xyz"
 }
 ```
@@ -695,20 +730,36 @@ gcloud run services update cybernetics-composer --region=us-central1
 
 ## 9. Testing
 
+### Composer (Go)
+
 ```bash
-# Unit tests
+go vet ./...
+go test -race -count=1 -coverprofile=cover.out ./...
+go tool cover -func=cover.out | tail -1
+
+# Static analysis & vulnerability gates (same as CI)
+golangci-lint run                       # config: .golangci.yml
+gosec -severity medium -confidence medium ./...
+govulncheck ./...
+trivy fs --severity CRITICAL,HIGH --ignore-unfixed .
+```
+
+### Broker (Python)
+
+```bash
 pytest tests/ -v
-
-# Coverage gate
 pytest tests/ --cov=cybernetics --cov-fail-under=80
-
-# Security scan
 pip-audit --requirement requirements.txt
 bandit -r cybernetics/
-
-# Container scan (after build)
-gcloud artifacts docker images scan us-central1-docker.pkg.dev/PROJECT/cybernetics/broker:latest
 ```
+
+### Container scan
+
+```bash
+gcloud artifacts docker images scan us-central1-docker.pkg.dev/PROJECT/cybernetics/composer:latest
+```
+
+CI runs the full composer gate on every push/PR — see [`.github/workflows/composer-security.yml`](.github/workflows/composer-security.yml).
 
 ---
 
@@ -727,19 +778,18 @@ for event in runner.run("Deploy my-app to production"):
 
 ## 11. Agent Composer
 
-A React + TypeScript web UI and Go backend for composing and deploying custom agents.
+The React + TypeScript UI and Go backend that generate Python agent code via
+Gemini, serve the public adapter catalog at `/api/templates`, and expose the
+operational dashboard. See the [Quick Start](#quick-start-docker-compose) at
+the top of this document for setup instructions — it is the canonical entry point.
 
-```bash
-# Start the composer backend
-go run cmd/composer/main.go
-
-# Start the frontend
-cd frontend && npm install && npm run dev
-```
+Runtime config is fully env-driven; the composer-side env-var matrix is
+documented in [`AGENTS.md`](AGENTS.md) (project-wide AI-agent guide) and
+[`SECURITY.md`](SECURITY.md) (control posture).
 
 **Workflow:**
 1. **Pick Template** — Choose from 18 agent templates (Sentinel, Deploy, Finance, Infra, Security, Data, Ops, Content, Commerce, Analytics, Google Workspace, Atlassian, Browser QA, CRM, Shopify, Database Ops, SRE Observability, Infrastructure)
-2. **Select Adapters** — Toggle any of the 58 MCP adapters
+2. **Select Adapters** — Toggle any of the 56 MCP adapters
 3. **Configure Keys** — Enter API keys for selected adapters
 4. **Compose** — Gemini generates a custom Python agent class
 5. **Deploy** — One-click deploy to Google Cloud Run
@@ -748,7 +798,7 @@ cd frontend && npm install && npm run dev
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/templates` | GET | List all 18 templates + 58 adapters |
+| `/api/templates` | GET | List all 18 templates + 56 adapters |
 | `/api/compose` | POST | Generate agent code via Gemini |
 | `/api/deploy` | POST | Return Cloud Run deployment command |
 
