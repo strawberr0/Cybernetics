@@ -159,7 +159,7 @@ export function Composer() {
   ])
   const [input, setInput] = useState('')
   const [welcomeOpen, setWelcomeOpen] = useState(true)
-  const [sessionHistoryOpen, setSessionHistoryOpen] = useState(true)
+  const [sessionHistoryOpen, setSessionHistoryOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [templates, setTemplates] = useState<Template[]>([])
   const [allAdapters, setAllAdapters] = useState<Adapter[]>([])
@@ -1015,9 +1015,9 @@ export function Composer() {
                 draggable={false}
               />
             </div>
-            <div ref={scrollRef} className="z-10 flex-1 overflow-y-auto pr-5 scrollbar-thin">
+            <div ref={scrollRef} className={`z-10 flex-1 overflow-y-auto pr-5 scrollbar-thin ${showWelcome ? 'flex items-center justify-center' : ''}`}>
               {showWelcome && (
-                <div className="composer-welcome max-w-[680px] border-2 border-[#5d5850] bg-[#dedad3] p-5 text-[#080b12] shadow-[5px_5px_0_rgba(0,0,0,0.35)]">
+                <div className="composer-welcome w-full max-w-[680px] border-2 border-[#5d5850] bg-[#dedad3] p-5 text-[#080b12] shadow-[5px_5px_0_rgba(0,0,0,0.35)]">
                   <div className="flex items-start gap-4">
                     <Info className="h-8 w-8 shrink-0 text-[#071a7a]" />
                     <h2 className="text-xl font-black leading-tight">Welcome to Cybernetics Composer.</h2>
