@@ -73,7 +73,7 @@ The project ships two surfaces:
 1. **Cybernetics MCP broker** — a single stdio-based MCP peer (`cybernetics-mcp`) that aggregates 56 adapters into one tool namespace. Drop it into Claude, Cursor, Codex, Antigravity, Devin, or Vims and you get every tool the broker advertises.
 2. **Composer service** — the Go HTTP + React UI in this repo. Generates Python agent code via Gemini, serves the public catalog at `/api/templates`, and is the operational dashboard.
 
-See the [Quick Start](#quick-start-docker-compose) above for the composer; section 4 for the broker.
+See the [Quick Start](#quick-start-docker-compose) above for the composer; section 3 for the broker.
 
 ### Key Differentiators
 - **Zero Trust by default** — every request authenticated, no anonymous endpoints beyond health probes
@@ -83,47 +83,7 @@ See the [Quick Start](#quick-start-docker-compose) above for the composer; secti
 
 ---
 
-## 2. Threat Model & Security Posture
-
-Full STRIDE analysis lives in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md). Per-surface highlights:
-
-### Composer service (Go, `cmd/composer/`)
-
-| Threat | Mitigation | Verification |
-|---|---|---|
-| Anonymous API access | `BearerAuth` (constant-time) or `OIDCAuth` (RS256 JWT) | `internal/middleware/middleware_test.go`, `internal/oidc/oidc_test.go` |
-| CSRF / hostile origin | Strict CORS allowlist; no wildcard echo | `TestCORS_AllowlistOnly` |
-| Body-size DoS | `MaxBody` (1 MiB default, env-tunable) | `TestMaxBody_Enforces413OnOversize` |
-| Per-IP request flood | Token-bucket rate limiter | `TestRateLimiter_*` |
-| Panic stack-trace leak | `Recover` middleware → generic 500 | `TestRecover_TurnsPanicInto500` |
-| Container escape | Distroless `nonroot`, `cap_drop: ALL`, `no-new-privileges`, read-only FS | `Dockerfile`, `docker-compose.yml` |
-| Supply-chain compromise | stdlib-only Go, cosign keyless sign, CycloneDX SBOM attest, govulncheck + Trivy CI gates | `.github/workflows/composer-security.yml` |
-| Missing audit trail | `slog` JSON with `X-Request-ID` correlation on every request | `internal/middleware/middleware.go` |
-
-### Broker service (Python, `cybernetics/broker/`)
-
-| Threat | Mitigation | Verification |
-|---|---|---|
-| Secret exfiltration from image | Multi-stage build; `.env` excluded; secrets via `--set-secrets` | `docker inspect` shows no `Env` secrets |
-| Unauthorized broker access | `--no-allow-unauthenticated` + Identity-Aware Proxy (IAP) | `gcloud run services describe` |
-| Timing attacks on API key | `hmac.compare_digest` + random delay on mismatch | Static analysis via `bandit` |
-| DQL / SQL injection | Regex allow-list sanitization (`_sanitize_dql`) + parameterized queries | Unit test `test_dql_sanitization` |
-| SSRF via adapter callbacks | URL prefix validation, no redirects, `httpx` timeout caps | Respx mock tests |
-| ReDoS in regex filters | Bounded regex (`^...$`), no `.*` backtracking | Code review |
-| Credential leakage in logs | `Guard` sentinel blocks keys named `password`, `secret`, `token` | `test_guard_blocks_sensitive` |
-| Async blocking I/O | All clients are `httpx.AsyncClient`, `asyncpg`, etc. | `pytest-asyncio` coverage |
-
-### Compliance Mapping
-
-Full control-by-control coverage is in [`docs/CONTROLS_NIST_800_53.md`](docs/CONTROLS_NIST_800_53.md) (38 controls across 9 NIST 800-53 Rev 5 families, 66% fully implemented). Highlights:
-
-- **NIST 800-53 Rev 5:** AC-3, AU-2/3/10, CM-2/6/7/8, SC-5/7/8/13/17, SI-7/10/11 — all ✅. Full STRIDE analysis in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
-- **FedRAMP Moderate:** in-container controls covered; deployment controls (TLS, IdP, log storage) are operator-supplied via Cloud Run + Cloud SQL + Secret Manager.
-- **SOC 2 Type II:** structured JSON audit logs with `X-Request-ID` correlation, captured by Cloud Logging.
-
----
-
-## 3. Architecture
+## 2. Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -169,11 +129,11 @@ Full control-by-control coverage is in [`docs/CONTROLS_NIST_800_53.md`](docs/CON
 
 ---
 
-## 4. Cybernetics MCP Server — Usage Guide
+## 3. Cybernetics MCP Server — Usage Guide
 
 Cybernetics is a **first-class MCP server** that exposes its adapters and agent templates as tools over the Model Context Protocol. Any MCP client (Claude Desktop, Cursor, Windsurf, etc.) can connect to it.
 
-### 4.1 What Is the Cybernetics MCP Server?
+### 3.1 What Is the Cybernetics MCP Server?
 
 The Cybernetics MCP server is a single stdio-based MCP peer that aggregates all configured adapters into one unified tool namespace. Instead of installing 20 separate MCP servers, you install **one**:
 
@@ -203,7 +163,7 @@ Once connected, your MCP client sees **all tools** from **all enabled adapters**
 | `sentinel_run` | Execute the full Sentinel agent workflow |
 | `deploy_trigger_pipeline` | Trigger a GitLab CI/CD pipeline |
 
-### 4.2 How It Works
+### 3.2 How It Works
 
 ```
 ┌─────────────┐      stdio       ┌──────────────────────────────────────────┐
@@ -219,7 +179,7 @@ Once connected, your MCP client sees **all tools** from **all enabled adapters**
 
 **You do not configure each adapter individually.** Adapters are loaded from the Cybernetics broker's registry based on the environment variables already set on the host.
 
-### 4.3 Required Environment (Preset by Ops)
+### 3.3 Required Environment (Preset by Ops)
 
 These are **connection settings** that your platform team configures once:
 
@@ -234,11 +194,11 @@ These are **connection settings** that your platform team configures once:
 | `BROWSER_CDP_HOST` | Browser CDP host | `localhost` |
 | `BROWSER_CDP_PORT` | Browser CDP port | `9222` |
 
-### 4.4 Secret Keys (Injected per User / Team)
+### 3.4 Secret Keys (Injected per User / Team)
 
 Set only the keys for the adapters you actually use. Adapters with no key
 required (`browser`, `chrome`, `firefox`, `brave`, `docker`, `postgres`) are
-omitted; they rely on preset connection settings from § 4.3.
+omitted; they rely on preset connection settings from § 3.3.
 
 #### Core
 
@@ -309,9 +269,9 @@ omitted; they rely on preset connection settings from § 4.3.
 |---|---|---|
 | `N8N_API_KEY` | n8n | Settings → API → Create API key |
 
-> **No-key adapters** (preset config from § 4.3 only): `airtable` connection, `brave`, `browser`, `chrome`, `docker`, `firefox`, `postgres`.
+> **No-key adapters** (preset config from § 3.3 only): `airtable` connection, `brave`, `browser`, `chrome`, `docker`, `firefox`, `postgres`.
 
-### 4.5 Example: Using Cybernetics from Antigravity
+### 3.5 Example: Using Cybernetics from Antigravity
 
 Google Antigravity inherits VS Code's MCP wiring under the `mcp.servers` key.
 
@@ -350,14 +310,14 @@ The Antigravity agent will:
 2. Call `dynatrace_get_problems` with `{ "service": "api" }`.
 3. Call `slack_post_message` with the results.
 
-### 4.6 Other clients
+### 3.6 Other clients
 
 The broker speaks vanilla MCP — same JSON schema in **Claude Desktop / Claude Code**
 (`mcpServers`), **Cursor** (`.cursor/mcp.json`), **Codex CLI** (`~/.codex/config.toml`, TOML),
 **Devin** (dashboard), and **Vims** (`vims_mcp_add_server`). The Composer UI's
 MCP Control Plane page renders copy-pasteable boilerplate for each.
 
-### 4.7 Protocol Details
+### 3.7 Protocol Details
 
 Implements MCP protocol `2024-11-05` over stdio (JSON-RPC 2.0):
 
@@ -371,7 +331,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 
 ---
 
-## 5. Adapter Catalog (56 Adapters)
+## 4. Adapter Catalog (56 Adapters)
 
 ### Non-Google Adapters
 
@@ -395,7 +355,6 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 | `github` | REST | `token` | github | `github_create_issue`, `github_get_issue`, `github_create_pr`, `github_list_repos`, `github_trigger_workflow`, `github_search_code` |
 | `gitlab` | REST | `PRIVATE-TOKEN` | gitlab | `gitlab_create_issue`, `gitlab_create_mr`, `gitlab_get_file`, `gitlab_trigger_pipeline` |
 | `jira` | REST | `Api-Token` | jira | `jira_create_issue`, `jira_search_issues`, `jira_get_sprint`, `jira_transition_issue` |
-| `kubernetes` | REST | `KUBECONFIG` | kubernetes | `k8s_list_pods`, `k8s_get_pod_logs`, `k8s_describe_pod`, `k8s_scale_deployment`, `k8s_restart_deployment`, `k8s_list_deployments`, `k8s_list_services` |
 | `linear` | GraphQL | `Bearer` | linear | `linear_create_issue`, `linear_list_issues`, `linear_update_issue`, `linear_get_teams`, `linear_search_issues`, `linear_create_comment` |
 | `mongodb` | TCP | URI | mongodb | `mongodb_find`, `mongodb_insert`, `mongodb_aggregate`, `mongodb_index` |
 | `n8n` | REST | `Api-Key` | n8n | `n8n_list_workflows`, `n8n_trigger`, `n8n_get_execution` |
@@ -440,7 +399,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 | `google-firestore` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
 | `google-spanner` | [Google MCP Hub](https://github.com/google/mcp) (remote) |
 
-### 5.1 MCP Server Sources
+### 4.1 MCP Server Sources
 
 | Adapter | Official MCP Server / Source |
 |---|---|
@@ -460,7 +419,6 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 | `firefox` | [mozilla/firefox-devtools-mcp](https://github.com/mozilla/firefox-devtools-mcp) |
 | `github` | [github/github-mcp-server](https://github.com/github/github-mcp-server) |
 | `gitlab` | [GitLab MCP Server](https://docs.gitlab.com/user/gitlab_duo/model_context_protocol/mcp_server/) |
-| `kubernetes` | [Kubernetes MCP](https://github.com/kubernetes/mcp) |
 | `linear` | [Linear MCP Docs](https://linear.app/docs/mcp) |
 | `mongodb` | [MongoDB MCP Server Docs](https://www.mongodb.com/docs/mcp-server/get-started/) |
 | `n8n` | [n8n MCP Server](https://docs.n8n.io/advanced-ai/mcp/accessing-n8n-mcp-server/) |
@@ -480,9 +438,9 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 
 ---
 
-## 6. Agent Templates
+## 5. Agent Templates
 
-### 6.1 Sentinel — Self-Healing SRE
+### 5.1 Sentinel — Self-Healing SRE
 **Adapters:** dynatrace, elastic, postgres, gitlab, arize, fivetran  
 **Phases:**
 1. **Detect** — Fetch active problems from Dynatrace
@@ -493,7 +451,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 6. **Evaluate** — Gemini LLM-as-a-Judge scores diagnosis/action quality
 7. **Learn** — Upsert pattern + log incident to Postgres; trigger Fivetran sync
 
-### 6.2 DeployAgent — CI/CD Orchestrator
+### 5.2 DeployAgent — CI/CD Orchestrator
 **Adapters:** github, vercel, aws, postgres  
 **Phases:**
 1. **Validate** — Verify latest commit on branch
@@ -502,7 +460,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 4. **Verify** — Smoke test deployed URL via `httpx`
 5. **Learn** — Log deployment outcome to Postgres
 
-### 6.3 FinanceAgent — Payment Anomaly Detection
+### 5.3 FinanceAgent — Payment Anomaly Detection
 **Adapters:** stripe, supabase, postgres  
 **Phases:**
 1. **Detect** — Flag invoices > $1,000 or duplicate charges in 24h window
@@ -511,7 +469,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 4. **Act** — Execute Stripe refund or insert review ticket
 5. **Learn** — Store pattern + log incident
 
-### 6.4 InfraAgent — Infrastructure Optimization
+### 5.4 InfraAgent — Infrastructure Optimization
 **Adapters:** dynatrace, cloudflare, aws, postgres  
 **Phases:**
 1. **Detect** — Dynatrace latency spikes on service
@@ -521,7 +479,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Verify** — Poll Dynatrace traces until error rate < 1%
 6. **Learn** — Store remediation pattern
 
-### 6.5 SecurityAgent — Vulnerability & Secret Scanning
+### 5.5 SecurityAgent — Vulnerability & Secret Scanning
 **Adapters:** github, slack, postgres, cloudflare, datadog  
 **Phases:**
 1. **Scan** — Dependency checks + secret detection in GitHub repos
@@ -531,7 +489,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Verify** — Re-scan to confirm remediation
 6. **Learn** — Store scan patterns in Postgres
 
-### 6.6 DataAgent — ETL Pipeline Orchestration
+### 5.6 DataAgent — ETL Pipeline Orchestration
 **Adapters:** postgres, supabase, fivetran, slack  
 **Phases:**
 1. **Extract** — Pull from Supabase tables
@@ -541,7 +499,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Monitor** — Slack notification on completion
 6. **Learn** — Store pipeline patterns
 
-### 6.7 OpsAgent — General DevOps Orchestration
+### 5.7 OpsAgent — General DevOps Orchestration
 **Adapters:** datadog, slack, github, linear, postgres  
 **Phases:**
 1. **Observe** — Datadog metrics + system health checks
@@ -550,7 +508,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 4. **Notify** — Slack #ops-alerts with diagnosis + actions
 5. **Learn** — Store remediation patterns in Postgres
 
-### 6.8 ContentAgent — Content Operations
+### 5.8 ContentAgent — Content Operations
 **Adapters:** notion, linear, slack  
 **Phases:**
 1. **Plan** — Outline content from Linear roadmap
@@ -560,7 +518,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Distribute** — Cross-post to channels
 6. **Learn** — Engagement analytics → content strategy
 
-### 6.9 CommerceAgent — E-commerce Operations
+### 5.9 CommerceAgent — E-commerce Operations
 **Adapters:** stripe, supabase, aws, slack  
 **Phases:**
 1. **Catalog** — Sync product data from Supabase
@@ -570,7 +528,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Reconcile** — Daily Stripe payout audit
 6. **Notify** — Slack revenue digest
 
-### 6.10 GoogleWorkspaceAgent — Workspace Automation
+### 5.10 GoogleWorkspaceAgent — Workspace Automation
 **Adapters:** google-workspace, slack  
 **Phases:**
 1. **Monitor** — Scan Gmail for priority threads
@@ -580,7 +538,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Notify** — Slack summary of day's actions
 6. **Archive** — Move resolved threads to Drive folder
 
-### 6.11 AtlassianAgent — Engineering Project Management
+### 5.11 AtlassianAgent — Engineering Project Management
 **Adapters:** jira, confluence, github, slack  
 **Phases:**
 1. **Backlog** — Jira grooming from Confluence specs
@@ -590,7 +548,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Retro** — Confluence retro doc + Slack poll
 6. **Learn** — Sprint velocity trend analysis
 
-### 6.12 BrowserQAAgent — Frontend QA Automation
+### 5.12 BrowserQAAgent — Frontend QA Automation
 **Adapters:** browser, chrome, firefox, slack  
 **Phases:**
 1. **Scan** — Crawl sitemap for changes
@@ -600,7 +558,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Report** — Slack #qa-alerts with diff links
 6. **Learn** — Flaky test pattern detection
 
-### 6.13 CRMAgent — Sales Operations
+### 5.13 CRMAgent — Sales Operations
 **Adapters:** airtable, google-workspace, slack  
 **Phases:**
 1. **Lead** — Ingest leads from Gmail signature capture
@@ -610,7 +568,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Onboard** — Drive welcome kit + Calendar kickoff
 6. **Nurture** — Airtable campaign enrollment
 
-### 6.14 ShopifyAgent — Shopify Store Ops
+### 5.14 ShopifyAgent — Shopify Store Ops
 **Adapters:** shopify, stripe, postgres, slack  
 **Phases:**
 1. **Inventory** — Shopify stock sync to Postgres
@@ -620,7 +578,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Refund** — Stripe refund → Shopify order adjust
 6. **Review** — Slack daily P&L digest
 
-### 6.15 DatabaseOpsAgent — Polyglot Database Ops
+### 5.15 DatabaseOpsAgent — Polyglot Database Ops
 **Adapters:** mongodb, redis, postgres, datadog, slack  
 **Phases:**
 1. **Monitor** — Datadog slow query alerts
@@ -630,7 +588,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Backup** — Cross-DB snapshot verification
 6. **Learn** — Query pattern + cache hit rate trends
 
-### 6.16 SREObservabilityAgent — Full-Stack Observability
+### 5.16 SREObservabilityAgent — Full-Stack Observability
 **Adapters:** dynatrace, elastic, datadog, pagerduty, slack  
 **Phases:**
 1. **Detect** — Dynatrace anomaly + Elastic error spike correlation
@@ -640,7 +598,7 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 5. **Verify** — Dynatrace/Elastic post-fix metrics
 6. **Learn** — Incident post-mortem → runbook update
 
-### 6.17 InfrastructureAgent — IaC & Container Ops
+### 5.17 InfrastructureAgent — IaC & Container Ops
 **Adapters:** docker, gitlab, aws, cloudflare, slack  
 **Phases:**
 1. **Plan** — GitLab CI pipeline + drift detection
@@ -652,11 +610,11 @@ Tool names are namespaced: `dynatrace_get_problems`, `github_create_issue`, `bro
 
 ---
 
-## 7. Production Deployment
+## 6. Production Deployment
 
 For **local development** see the [Quick Start (Docker Compose)](#quick-start-docker-compose) at the top of this document — that's the canonical entry point for both the composer service and the broker.
 
-### 7.1 GCP Production (Cloud Run)
+### 6.1 GCP Production (Cloud Run)
 
 Prerequisites:
 - GCP project with Cloud Run, Cloud SQL (Postgres 15+), Secret Manager enabled
@@ -677,7 +635,7 @@ curl https://<URL>/healthz
 curl https://<URL>/readyz
 ```
 
-### 7.2 Cloud SQL Migration
+### 6.2 Cloud SQL Migration
 
 ```bash
 # Apply schema
@@ -685,7 +643,7 @@ psql "host=/cloudsql/PROJECT:REGION:INSTANCE dbname=sentinel user=postgres" \
   -f migrations/001_init.sql
 ```
 
-### 7.3 Hardening Checklist
+### 6.3 Hardening Checklist
 
 The composer image already enforces the in-container half (distroless `nonroot`,
 read-only FS, `cap_drop: ALL`, cosign-signed, SBOM-attested). The deployment
@@ -705,9 +663,9 @@ threat model in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ---
 
-## 8. Operations
+## 7. Operations
 
-### 8.1 Health & Readiness
+### 7.1 Health & Readiness
 
 ```bash
 # Liveness
@@ -726,7 +684,7 @@ curl -H "Authorization: Bearer $API_KEY" https://<URL>/mcp/circuits
 curl -H "Authorization: Bearer $API_KEY" https://<URL>/mcp/sse
 ```
 
-### 8.2 Structured Logging
+### 7.2 Structured Logging
 
 Both surfaces emit JSON to `stdout`, captured by Cloud Logging.
 
@@ -762,7 +720,7 @@ Both surfaces emit JSON to `stdout`, captured by Cloud Logging.
 }
 ```
 
-### 8.3 Runbook: Adapter Circuit Open
+### 7.3 Runbook: Adapter Circuit Open
 
 ```bash
 # 1. Diagnose
@@ -779,7 +737,7 @@ gcloud run services update cybernetics-composer --region=us-central1
 
 ---
 
-## 9. Testing
+## 8. Testing
 
 ### Composer (Go)
 
@@ -814,7 +772,7 @@ CI runs the full composer gate on every push/PR — see [`.github/workflows/comp
 
 ---
 
-## 10. Google ADK Integration
+## 9. Google ADK Integration
 
 ```python
 from cybernetics.adk.bridge import cybernetics_adk_agent
@@ -827,7 +785,7 @@ for event in runner.run("Deploy my-app to production"):
 
 ---
 
-## 11. Agent Composer
+## 10. Agent Composer
 
 The React + TypeScript UI and Go backend that generate Python agent code via
 Gemini, serve the public adapter catalog at `/api/templates`, and expose the
@@ -868,11 +826,11 @@ curl -X POST http://localhost:4001/api/compose \
 
 ---
 
-## 12. Google ADK A2A, A2P & ERC-8004 Integration
+## 11. Google ADK A2A, A2P & ERC-8004 Integration
 
 Cybernetics agents implement Google's **Agent-to-Agent (A2A)** and **Agent-to-Protocol (A2P)** patterns for cross-agent interoperability.
 
-### 12.1 A2A — Agent-to-Agent
+### 11.1 A2A — Agent-to-Agent
 
 Agents register capabilities in a shared `A2ARegistry`. Other agents can discover and invoke those capabilities dynamically.
 
@@ -889,7 +847,7 @@ cap = A2ACapability(
 get_a2a_registry().register_capability(cap)
 ```
 
-### 12.2 A2P — Agent-to-Protocol
+### 11.2 A2P — Agent-to-Protocol
 
 Agents can subscribe to or emit protocol events for decoupled coordination.
 
@@ -906,7 +864,7 @@ proto = A2PProtocol(
 get_a2a_registry().register_protocol(proto)
 ```
 
-### 12.3 ERC-8004 (8004.org)
+### 11.3 ERC-8004 (8004.org)
 
 **ERC-8004** is an Ethereum standard for agent capability discovery and identity, authored by Google. Cybernetics implements the on-chain resolution contract via `ERC8004Resolver`.
 
@@ -928,7 +886,7 @@ resolver.negotiate([{"id": "sentinel_detect"}, {"id": "unknown_cap"}])
 
 ---
 
-## 13. Extending Cybernetics
+## 12. Extending Cybernetics
 
 Cybernetics is designed to be easily extensible. Adapters placed in `cybernetics/adapters/` are **automatically discovered and registered** at startup via `auto_discover()`. To add a new MCP adapter, follow these steps:
 
@@ -988,6 +946,46 @@ register_adapter("myservice", MyServiceAdapter)
 
 ### 4. Verify
 Run the integration tests and ensure your new adapter is listed in `/mcp/tools`.
+
+---
+
+## 13. Threat Model & Security Posture
+
+Full STRIDE analysis lives in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md). Per-surface highlights:
+
+### Composer service (Go, `cmd/composer/`)
+
+| Threat | Mitigation | Verification |
+|---|---|---|
+| Anonymous API access | `BearerAuth` (constant-time) or `OIDCAuth` (RS256 JWT) | `internal/middleware/middleware_test.go`, `internal/oidc/oidc_test.go` |
+| CSRF / hostile origin | Strict CORS allowlist; no wildcard echo | `TestCORS_AllowlistOnly` |
+| Body-size DoS | `MaxBody` (1 MiB default, env-tunable) | `TestMaxBody_Enforces413OnOversize` |
+| Per-IP request flood | Token-bucket rate limiter | `TestRateLimiter_*` |
+| Panic stack-trace leak | `Recover` middleware → generic 500 | `TestRecover_TurnsPanicInto500` |
+| Container escape | Distroless `nonroot`, `cap_drop: ALL`, `no-new-privileges`, read-only FS | `Dockerfile`, `docker-compose.yml` |
+| Supply-chain compromise | stdlib-only Go, cosign keyless sign, CycloneDX SBOM attest, govulncheck + Trivy CI gates | `.github/workflows/composer-security.yml` |
+| Missing audit trail | `slog` JSON with `X-Request-ID` correlation on every request | `internal/middleware/middleware.go` |
+
+### Broker service (Python, `cybernetics/broker/`)
+
+| Threat | Mitigation | Verification |
+|---|---|---|
+| Secret exfiltration from image | Multi-stage build; `.env` excluded; secrets via `--set-secrets` | `docker inspect` shows no `Env` secrets |
+| Unauthorized broker access | `--no-allow-unauthenticated` + Identity-Aware Proxy (IAP) | `gcloud run services describe` |
+| Timing attacks on API key | `hmac.compare_digest` + random delay on mismatch | Static analysis via `bandit` |
+| DQL / SQL injection | Regex allow-list sanitization (`_sanitize_dql`) + parameterized queries | Unit test `test_dql_sanitization` |
+| SSRF via adapter callbacks | URL prefix validation, no redirects, `httpx` timeout caps | Respx mock tests |
+| ReDoS in regex filters | Bounded regex (`^...$`), no `.*` backtracking | Code review |
+| Credential leakage in logs | `Guard` sentinel blocks keys named `password`, `secret`, `token` | `test_guard_blocks_sensitive` |
+| Async blocking I/O | All clients are `httpx.AsyncClient`, `asyncpg`, etc. | `pytest-asyncio` coverage |
+
+### Compliance Mapping
+
+Full control-by-control coverage is in [`docs/CONTROLS_NIST_800_53.md`](docs/CONTROLS_NIST_800_53.md) (38 controls across 9 NIST 800-53 Rev 5 families, 66% fully implemented). Highlights:
+
+- **NIST 800-53 Rev 5:** AC-3, AU-2/3/10, CM-2/6/7/8, SC-5/7/8/13/17, SI-7/10/11 — all ✅. Full STRIDE analysis in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+- **FedRAMP Moderate:** in-container controls covered; deployment controls (TLS, IdP, log storage) are operator-supplied via Cloud Run + Cloud SQL + Secret Manager.
+- **SOC 2 Type II:** structured JSON audit logs with `X-Request-ID` correlation, captured by Cloud Logging.
 
 ---
 
