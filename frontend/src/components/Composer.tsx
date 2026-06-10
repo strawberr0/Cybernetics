@@ -1,18 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, Terminal, Cpu, Check, Copy, Cloud, LayoutTemplate, Sparkles, Plug, Rocket, ChevronDown, X, Server, Menu, Settings, Plus, Search, Info, Code2 } from 'lucide-react'
+import { Send, Bot, User, Terminal, Cpu, Check, Copy, Cloud, LayoutTemplate, Sparkles, Plug, Rocket, ChevronDown, X, Server } from 'lucide-react'
 
 interface Template {
   name: string
   description: string
   adapters: string[]
   phases: string[]
-}
-
-interface Adapter {
-  name: string
-  description: string
-  source: string
-  group?: string
 }
 
 interface Message {
@@ -26,63 +19,27 @@ interface Message {
 
 const envMap: Record<string, string[]> = {
   // ── Secret keys only (connection URLs are preset by ops) ──
-  airtable: ['AIRTABLE_API_KEY'],
-  arize: ['ARIZE_API_KEY'],
-  asana: ['ASANA_TOKEN'],
-  aws: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
-  brave: [],
-  browser: [],
-  chrome: [],
-  cloudflare: ['CLOUDFLARE_API_TOKEN'],
-  confluence: ['CONFLUENCE_API_TOKEN'],
-  datadog: ['DATADOG_API_KEY', 'DATADOG_APP_KEY'],
-  docker: [],
   dynatrace: ['DYNATRACE_API_TOKEN'],
   elastic: ['ELASTIC_API_KEY'],
-  fivetran: ['FIVETRAN_API_KEY', 'FIVETRAN_API_SECRET'],
-  firefox: [],
-  github: ['GITHUB_TOKEN'],
-  gitlab: ['GITLAB_TOKEN'],
-  'google-alloydb': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-analytics': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-bigtable': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-chronicle': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-cloud-resource-manager': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-cloud-run': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-cloud-sql-mysql': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-cloud-sql-postgres': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-cloud-sql-sqlserver': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-cloud-storage': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-compute-engine': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-developer-knowledge': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-firebase': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-firestore': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-flutter': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-gcloud': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-genmedia': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-gke': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-go': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-maps': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-mcp-toolbox': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-observability': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-spanner': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  'google-workspace': ['GOOGLE_SERVICE_ACCOUNT_KEY'],
-  jira: ['JIRA_API_TOKEN'],
-  kubernetes: ['KUBECONFIG'],
-  linear: ['LINEAR_API_KEY'],
-  mongodb: ['MONGODB_URI'],
-  n8n: ['N8N_API_KEY'],
-  notion: ['NOTION_TOKEN'],
-  pagerduty: ['PAGERDUTY_API_KEY'],
   postgres: [],
-  quickbooks: ['QUICKBOOKS_ACCESS_TOKEN', 'QUICKBOOKS_COMPANY_ID'],
-  redis: ['REDIS_URL'],
-  shopify: ['SHOPIFY_ACCESS_TOKEN', 'SHOPIFY_SHOP_DOMAIN'],
-  slack: ['SLACK_BOT_TOKEN'],
-  snowflake: ['SNOWFLAKE_ACCOUNT', 'SNOWFLAKE_USER', 'SNOWFLAKE_PASSWORD'],
+  gitlab: ['GITLAB_TOKEN'],
+  arize: ['ARIZE_API_KEY'],
+  fivetran: ['FIVETRAN_API_KEY', 'FIVETRAN_API_SECRET'],
+  github: ['GITHUB_TOKEN'],
   stripe: ['STRIPE_API_KEY'],
-  supabase: ['SUPABASE_KEY'],
+  aws: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
   vercel: ['VERCEL_TOKEN'],
+  supabase: ['SUPABASE_KEY'],
+  cloudflare: ['CLOUDFLARE_API_TOKEN'],
+  browser: [],
+  chrome: [],
+  firefox: [],
+  brave: [],
+  slack: ['SLACK_BOT_TOKEN'],
+  kubernetes: [],
+  datadog: ['DATADOG_API_KEY', 'DATADOG_APP_KEY'],
+  notion: ['NOTION_TOKEN'],
+  linear: ['LINEAR_API_KEY'],
 }
 
 function generateId() {
@@ -99,11 +56,9 @@ export function Composer() {
     },
   ])
   const [input, setInput] = useState('')
-  const [welcomeOpen, setWelcomeOpen] = useState(true)
-  const [sessionHistoryOpen, setSessionHistoryOpen] = useState(true)
   const [isTyping, setIsTyping] = useState(false)
   const [templates, setTemplates] = useState<Template[]>([])
-  const [allAdapters, setAllAdapters] = useState<Adapter[]>([])
+  const [allAdapters, setAllAdapters] = useState<string[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [selectedAdapters, setSelectedAdapters] = useState<Set<string>>(new Set())
   const [envVars, setEnvVars] = useState<Record<string, string>>({})
@@ -119,17 +74,25 @@ export function Composer() {
     '3.5 Flash': 'gemini-3.5-flash',
   }
   const [selectedModel, setSelectedModel] = useState('gemini-3-flash-preview')
+  const [apiUrl, setApiUrl] = useState(() => {
+    const stored = localStorage.getItem('CYBERNETICS_API_URL')
+    if (stored) return stored.replace(/\/$/, '')
+    if (window.location.hostname.endsWith('github.io')) {
+      return 'https://cybernetics-broker-strawberry.a.run.app' // Smart default fallback for GitHub Pages
+    }
+    return '' // Relative path for embedded server
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
   const aiDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch('/api/templates')
+    fetch(`${apiUrl}/api/templates`)
       .then(r => r.json())
-      .then((data: { templates: Template[]; adapters: Adapter[] }) => {
+      .then((data: { templates: Template[]; adapters: string[] }) => {
         setTemplates(data.templates)
         setAllAdapters(data.adapters)
       })
-  }, [])
+  }, [apiUrl])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -157,72 +120,6 @@ export function Composer() {
     return [...new Set(keys)]
   }
 
-  function groupAdapters(items: Adapter[]) {
-    const grouped = new Map<string, Adapter[]>()
-    const ungrouped: Adapter[] = []
-    for (const a of items) {
-      if (a.group) {
-        if (!grouped.has(a.group)) grouped.set(a.group, [])
-        grouped.get(a.group)!.push(a)
-      } else {
-        ungrouped.push(a)
-      }
-    }
-    return { grouped, ungrouped }
-  }
-
-  function renderAdapterCard(a: Adapter) {
-    return (
-      <button
-        key={a.name}
-        onClick={() => {
-          setSelectedAdapters(prev => {
-            const next = new Set(prev)
-            if (next.has(a.name)) next.delete(a.name)
-            else next.add(a.name)
-            return next
-          })
-        }}
-        className={`text-left p-3 rounded-lg border transition-all ${
-          selectedAdapters.has(a.name)
-            ? 'border-emerald-500/50 bg-emerald-500/10'
-            : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="font-semibold text-white capitalize">{a.name}</div>
-          {selectedAdapters.has(a.name) && <Check className="w-3 h-3 text-emerald-400" />}
-        </div>
-        <div className="text-xs text-slate-400">{a.description}</div>
-        {a.source && (
-          <a
-            href={a.source}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
-            className="text-[10px] text-blue-400 hover:text-blue-300 mt-1 inline-block"
-          >
-            Source ↗
-          </a>
-        )}
-      </button>
-    )
-  }
-
-  function renderAdapterGrid(items: Adapter[]) {
-    const { grouped, ungrouped } = groupAdapters(items)
-    // Flatten grouped adapters so they render as individual cards like everything else
-    const allItems = [...ungrouped]
-    for (const [, groupItems] of grouped) {
-      allItems.push(...groupItems)
-    }
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-        {allItems.map(a => renderAdapterCard(a))}
-      </div>
-    )
-  }
-
   async function handleChat(text: string, currentMessages: Message[]) {
     setIsTyping(true)
     try {
@@ -230,7 +127,7 @@ export function Composer() {
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role, content: m.content }))
 
-      const r = await fetch('/api/chat', {
+      const r = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,7 +204,7 @@ export function Composer() {
   async function handleCompose(customPrompt?: string) {
     setIsTyping(true)
     try {
-      const r = await fetch('/api/compose', {
+      const r = await fetch(`${apiUrl}/api/compose`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -335,7 +232,7 @@ export function Composer() {
   async function handleDeploy(projectId: string, region: string, serviceName: string) {
     setIsTyping(true)
     try {
-      const r = await fetch('/api/deploy', {
+      const r = await fetch(`${apiUrl}/api/deploy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -361,7 +258,6 @@ export function Composer() {
     if (!input.trim()) return
     const text = input.trim()
     setInput('')
-    setWelcomeOpen(false)
 
     // Local command shortcuts
     if (text.toLowerCase() === 'show templates' || text.toLowerCase() === 'templates') {
@@ -404,7 +300,7 @@ export function Composer() {
     const useMatch = text.match(/^use\s+(.+)$/i)
     if (useMatch) {
       const names = useMatch[1].split(/,\s*/).map(s => s.trim().toLowerCase())
-      const valid = names.filter(n => allAdapters.some(a => a.name === n))
+      const valid = names.filter(n => allAdapters.includes(n))
       setSelectedAdapters(prev => {
         const next = new Set(prev)
         valid.forEach(v => next.add(v))
@@ -465,8 +361,32 @@ export function Composer() {
     }
 
     if (msg.action === 'adapters') {
-      const items: Adapter[] = msg.actionData || allAdapters
-      return renderAdapterGrid(items)
+      const items: string[] = msg.actionData || allAdapters
+      return (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {items.map((a: string) => (
+            <button
+              key={a}
+              onClick={() => {
+                setSelectedAdapters(prev => {
+                  const next = new Set(prev)
+                  if (next.has(a)) next.delete(a)
+                  else next.add(a)
+                  return next
+                })
+              }}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                selectedAdapters.has(a)
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+              }`}
+            >
+              {selectedAdapters.has(a) && <Check className="w-3 h-3 inline mr-1" />}
+              {a}
+            </button>
+          ))}
+        </div>
+      )
     }
 
     if (msg.action === 'keys') {
@@ -562,14 +482,14 @@ export function Composer() {
     // Regular markdown-ish text
     const lines = msg.content.split('\n')
     return (
-      <div className={`text-sm whitespace-pre-wrap ${msg.role === 'user' ? 'text-white' : 'text-[#080b12]'}`}>
+      <div className="text-sm text-slate-200 whitespace-pre-wrap">
         {lines.map((line, i) => {
           if (line.startsWith('```')) return null
           if (line.startsWith('**') && line.endsWith('**')) {
-            return <div key={i} className="font-semibold">{line.slice(2, -2)}</div>
+            return <div key={i} className="font-semibold text-white">{line.slice(2, -2)}</div>
           }
           if (line.startsWith('• ')) {
-            return <div key={i} className="pl-2 opacity-80">{line}</div>
+            return <div key={i} className="text-slate-400 pl-2">{line}</div>
           }
           return <div key={i}>{line}</div>
         })}
@@ -617,8 +537,28 @@ export function Composer() {
             <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Plug className="w-4 h-4 text-blue-400" /> MCP Adapters</h3>
             <button onClick={() => setActivePanel(null)} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
-          <div className="max-h-80 overflow-y-auto scrollbar-thin pr-1">
-            {renderAdapterGrid(allAdapters)}
+          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto scrollbar-thin pr-1">
+            {allAdapters.map((a: string) => (
+              <button
+                key={a}
+                onClick={() => {
+                  setSelectedAdapters(prev => {
+                    const next = new Set(prev)
+                    if (next.has(a)) next.delete(a)
+                    else next.add(a)
+                    return next
+                  })
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  selectedAdapters.has(a)
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-slate-950 text-slate-400 border border-slate-700 hover:border-slate-600'
+                }`}
+              >
+                {selectedAdapters.has(a) && <Check className="w-3 h-3 inline mr-1" />}
+                {a}
+              </button>
+            ))}
           </div>
         </div>
       )
@@ -685,257 +625,159 @@ export function Composer() {
     return null
   }
 
-  const selectedModelLabel = Object.entries(modelOptions).find(([, id]) => id === selectedModel)?.[0] || '3 Flash'
-  const hasConversation = messages.some(msg => msg.role === 'user' || msg.role === 'assistant')
-  const showWelcome = welcomeOpen && !hasConversation
-  const blueprintState = isTyping ? 'thinking' : hasConversation ? 'conversation' : input.trim() ? 'drafting' : 'idle'
-
   return (
-    <div className="retro-window h-[calc(100vh-76px)] min-h-[680px] overflow-hidden">
-      <div className="flex h-full">
-        <aside className="hidden lg:flex w-[78px] flex-col items-center border-r-2 border-[#706b63] bg-[#d6d2cb]">
-          <button
-            className={`retro-icon-button mt-4 ${sessionHistoryOpen ? 'bg-[#09217f] text-white' : 'text-[#0a1880]'}`}
-            title={sessionHistoryOpen ? 'Collapse session history' : 'Expand session history'}
-            onClick={() => setSessionHistoryOpen(open => !open)}
-            aria-pressed={sessionHistoryOpen}
-          >
-            <Menu className="w-8 h-8" />
-          </button>
-          <button className="retro-icon-button mt-3 text-[#0a1880]" title="Settings">
-            <Settings className="w-7 h-7" />
-          </button>
-          <button
-            className="mt-auto mb-20 text-3xl font-black"
-            title={sessionHistoryOpen ? 'Collapse session history' : 'Expand session history'}
-            onClick={() => setSessionHistoryOpen(open => !open)}
-          >
-            {sessionHistoryOpen ? '«' : '»'}
-          </button>
-        </aside>
+    <div className="flex flex-col h-[calc(100vh-120px)] max-h-[800px] rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900">
+        <Terminal className="w-5 h-5 text-emerald-400 shrink-0" />
+        <span className="text-sm font-semibold text-white">Agent Composer</span>
 
-        {sessionHistoryOpen && (
-        <aside className="hidden xl:block w-[324px] border-r-2 border-[#706b63] bg-[#d8d4cd] p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-black tracking-wide">SESSION HISTORY</h2>
-            <button className="retro-button flex items-center gap-2 px-3 py-2 text-sm font-bold">
-              <Plus className="w-4 h-4 text-[#071a7a]" /> New Session
+        <div className="flex items-center gap-1 ml-auto">
+          <button
+            onClick={() => setActivePanel(activePanel === 'templates' ? null : 'templates')}
+            title="Templates"
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${activePanel === 'templates' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            <LayoutTemplate className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Templates</span>
+          </button>
+          <button
+            onClick={() => setActivePanel(activePanel === 'adapters' ? null : 'adapters')}
+            title="MCP Adapters"
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${activePanel === 'adapters' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            <Server className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Adapters</span>
+          </button>
+
+          {/* AI Keys Dropdown */}
+          <div className="relative" ref={aiDropdownRef}>
+            <button
+              onClick={() => setAiDropdownOpen(v => !v)}
+              title="AI Provider Keys"
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${aiDropdownOpen ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">AI Keys</span>
+              <ChevronDown className="w-3 h-3" />
             </button>
-          </div>
-          <label className="mt-6 flex items-center gap-3 border-2 border-[#7d776d] bg-[#eeeae4] px-3 py-3 shadow-inner">
-            <Search className="w-6 h-6" />
-            <input className="w-full bg-transparent text-lg outline-none placeholder:text-[#4d4a47]" placeholder="Search sessions..." />
-          </label>
-
-          <div className="mt-7 space-y-5 text-sm">
-            <div>
-              <h3 className="mb-3 font-black">TODAY</h3>
-              <button className="w-full bg-[#09217f] p-4 text-left text-white shadow-[inset_0_0_0_1px_#1e4bd7]">
-                <div className="flex items-center gap-2 font-bold">
-                  <Terminal className="w-4 h-4 text-[#62ff39]" />
-                  Incident response agent
-                  <span className="ml-auto h-3 w-3 border border-[#2c2a26] bg-[#62ff39]" />
-                </div>
-                <div className="ml-6 mt-1">Datadog · Slack · 2m ago</div>
-              </button>
-              <button className="w-full border-b border-[#8b857b] p-4 text-left">
-                <div className="flex items-center font-bold">Slack alert summarizer<span className="ml-auto h-3 w-3 border border-[#2c2a26] bg-[#ffd31f]" /></div>
-                <div className="mt-1">Datadog · Slack · 45m ago</div>
-              </button>
-            </div>
-            <div>
-              <h3 className="mb-3 font-black">YESTERDAY</h3>
-              {[
-                ['GitHub PR reviewer', 'GitHub · OpenAI · 1d ago', '#b9b7b2'],
-                ['Cloud Run deploy bot', 'Cloud Run · GCP · 1d ago', '#39e94c'],
-              ].map(([title, meta, color]) => (
-                <button key={title} className="w-full border-b border-[#8b857b] p-4 text-left">
-                  <div className="flex items-center font-bold">{title}<span className="ml-auto h-3 w-3 border border-[#2c2a26]" style={{ backgroundColor: color }} /></div>
-                  <div className="mt-1">{meta}</div>
-                </button>
-              ))}
-            </div>
-            <div>
-              <h3 className="mb-3 font-black">PREVIOUS 7 DAYS</h3>
-              {[
-                ['On-call escalation bot', 'PagerDuty · Slack · 3d ago', '#ff2438'],
-                ['Data pipeline monitor', 'BigQuery · Slack · 5d ago', '#ffd31f'],
-              ].map(([title, meta, color]) => (
-                <button key={title} className="w-full border-b border-[#8b857b] p-4 text-left">
-                  <div className="flex items-center font-bold">{title}<span className="ml-auto h-3 w-3 border border-[#2c2a26]" style={{ backgroundColor: color }} /></div>
-                  <div className="mt-1">{meta}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
-        )}
-
-        <section className="flex min-w-0 flex-1 flex-col">
-          <div className="composer-toolbar flex min-h-[72px] items-center gap-4 border-b-2 border-[#676057] bg-[#09217f] px-6 text-white">
-            <Terminal className="w-8 h-8 text-[#58ff3e]" />
-            <span className="composer-title text-2xl font-black tracking-wide">Agent Composer</span>
-            <div className="composer-toolbar-actions ml-auto flex items-center gap-2">
-              <button onClick={() => setActivePanel(activePanel === 'templates' ? null : 'templates')} className="retro-button toolbar-button"><LayoutTemplate className="w-6 h-6 text-[#071a7a]" />Templates</button>
-              <button onClick={() => setActivePanel(activePanel === 'adapters' ? null : 'adapters')} className="retro-button toolbar-button"><Server className="w-6 h-6 text-[#071a7a]" />Adapters</button>
-              <div className="relative" ref={aiDropdownRef}>
-                <button onClick={() => setAiDropdownOpen(v => !v)} className="retro-button toolbar-button">
-                  <Sparkles className="w-6 h-6 text-[#071a7a]" />AI Keys<ChevronDown className="w-5 h-5 text-[#071a7a]" />
-                </button>
-                {aiDropdownOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-72 border-2 border-[#1e1b18] bg-[#d8d4cd] p-4 shadow-[4px_4px_0_#111]">
-                    <label className="mb-2 block text-sm font-black text-[#07112e]">GEMINI_API_KEY</label>
-                    <input
-                      type="text"
-                      value={geminiKey}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGeminiKey(e.target.value)}
-                      placeholder="Enter Gemini API key"
-                      className="retro-input w-full px-3 py-2 text-sm"
-                    />
-                  </div>
-                )}
+            {aiDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 w-64 p-3 rounded-lg bg-slate-900 border border-slate-700 shadow-xl z-50">
+                <label className="text-xs text-slate-400 block mb-1">GEMINI_API_KEY</label>
+                <input
+                  type="text"
+                  value={geminiKey}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGeminiKey(e.target.value)}
+                  placeholder="Enter Gemini API key"
+                  className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Used for /api/chat and /api/compose endpoints</p>
+                
+                <label className="text-xs text-slate-400 block mb-1 mt-3">API Backend URL</label>
+                <input
+                  type="text"
+                  value={apiUrl}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setApiUrl(e.target.value)
+                    localStorage.setItem('CYBERNETICS_API_URL', e.target.value)
+                  }}
+                  placeholder="e.g. http://localhost:3001 or Cloud Run URL"
+                  className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">URL of your hosted Go Composer API backend</p>
               </div>
-              <button onClick={() => setActivePanel(activePanel === 'keys' ? null : 'keys')} className="retro-button toolbar-button">
-                <Plug className="w-6 h-6 text-[#071a7a]" />Keys
-                {getRequiredKeys().length > 0 && <span className="ml-1 text-xs">({getRequiredKeys().length})</span>}
-              </button>
-              <button onClick={() => setActivePanel(activePanel === 'deploy' ? null : 'deploy')} className="retro-button toolbar-button"><Rocket className="w-6 h-6 text-[#071a7a]" />Deploy</button>
-            </div>
+            )}
           </div>
 
-          {renderPanel()}
+          <button
+            onClick={() => setActivePanel(activePanel === 'keys' ? null : 'keys')}
+            title="Service Keys"
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${activePanel === 'keys' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            <Plug className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Keys</span>
+            {getRequiredKeys().length > 0 && (
+              <span className="ml-0.5 w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 text-[9px] flex items-center justify-center">{getRequiredKeys().length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setActivePanel(activePanel === 'deploy' ? null : 'deploy')}
+            title="Deploy"
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors ${activePanel === 'deploy' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            <Rocket className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden sm:inline">Deploy</span>
+          </button>
+        </div>
+      </div>
 
-          <div className="blueprint-grid composer-workspace relative flex flex-1 overflow-hidden p-8">
-            <div className={`blueprint-schematic blueprint-schematic-${blueprintState}`} aria-hidden="true">
-              <img
-                src="/assets/cybernetic-blueprint.png"
-                alt=""
-                className="blueprint-image"
-                draggable={false}
-              />
+      {/* Inline Panels */}
+      {renderPanel()}
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+        {messages.map(msg => (
+          <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role !== 'user' && (
+              <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
+                {msg.role === 'assistant' ? <Bot className="w-4 h-4 text-emerald-400" /> : <Cpu className="w-4 h-4 text-slate-400" />}
+              </div>
+            )}
+            <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-200'} rounded-xl px-4 py-3`}>
+              {renderMessage(msg)}
             </div>
-            <div ref={scrollRef} className="z-10 flex-1 overflow-y-auto pr-5 scrollbar-thin">
-              {showWelcome && (
-                <div className="composer-welcome max-w-[680px] border-2 border-[#5d5850] bg-[#dedad3] p-5 text-[#080b12] shadow-[5px_5px_0_rgba(0,0,0,0.35)]">
-                  <div className="flex items-start gap-4">
-                    <Info className="h-8 w-8 shrink-0 text-[#071a7a]" />
-                    <h2 className="text-xl font-black leading-tight">Welcome to Cybernetics Composer.</h2>
-                    <button
-                      onClick={() => setWelcomeOpen(false)}
-                      className="retro-button ml-auto grid h-9 w-9 shrink-0 place-items-center"
-                      title="Close welcome message"
-                    >
-                      <X className="h-5 w-5 text-[#071a7a]" />
-                    </button>
-                  </div>
-                  <div className="my-3 border-t-2 border-dashed border-[#55504a]" />
-                  <p className="mb-3 text-base font-bold">Type a message to chat with Gemini, or try:</p>
-                  <div className="space-y-2 text-base font-bold">
-                    {[
-                      ['show templates', 'browse agent templates'],
-                      ['use datadog and slack', 'pick adapters'],
-                      ['set DATADOG_API_KEY=xxx', 'configure keys'],
-                      ['compose', 'generate agent code'],
-                      ['deploy to us-central1', 'deploy to Cloud Run'],
-                    ].map(([cmd, desc]) => (
-                      <div key={cmd} className="flex gap-3">
-                        <span className="mt-2 h-3 w-3 bg-[#09217f]" />
-                        <span><span className="text-[#071a7a]">{cmd}</span> — {desc}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="my-4 border-t-2 border-[#8d877e]" />
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <button
-                      onClick={() => {
-                        setActivePanel('templates')
-                        setWelcomeOpen(false)
-                      }}
-                      className="retro-button flex items-center justify-center gap-2 px-3 py-3 text-sm font-black"
-                    >
-                      <LayoutTemplate className="w-6 h-6 text-[#071a7a]" />Browse<br />Templates
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActivePanel('adapters')
-                        setWelcomeOpen(false)
-                      }}
-                      className="retro-button flex items-center justify-center gap-2 px-3 py-3 text-sm font-black"
-                    >
-                      <Plug className="w-6 h-6 text-[#071a7a]" />Connect<br />Adapter
-                    </button>
-                    <button
-                      onClick={() => {
-                        setWelcomeOpen(false)
-                        handleCompose()
-                      }}
-                      className="retro-button flex items-center justify-center gap-2 px-3 py-3 text-sm font-black"
-                    >
-                      <Code2 className="w-6 h-6 text-[#071a7a]" />Compose<br />Agent
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {messages.length > 1 && (
-                <div className="mt-5 max-w-[720px] space-y-4">
-                  {messages.slice(1).map(msg => (
-                    <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      {msg.role !== 'user' && msg.role !== 'assistant' && (
-                        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center border-2 border-[#8d877e] bg-[#d8d4cd]">
-                          <Cpu className="w-4 h-4 text-[#071a7a]" />
-                        </div>
-                      )}
-                      <div className={`max-w-[85%] border-2 px-4 py-3 shadow-[3px_3px_0_rgba(0,0,0,0.25)] ${msg.role === 'user' ? 'border-[#9fb3ff] bg-[#09217f] text-white' : 'border-[#5d5850] bg-[#dedad3] text-[#080b12]'}`}>
-                        {renderMessage(msg)}
-                      </div>
-                    </div>
-                  ))}
-                  {isTyping && (
-                    <div className="inline-flex gap-1 border-2 border-[#5d5850] bg-[#dedad3] px-4 py-3">
-                      <span className="h-2 w-2 animate-bounce bg-[#09217f]" style={{ animationDelay: '0ms' }} />
-                      <span className="h-2 w-2 animate-bounce bg-[#09217f]" style={{ animationDelay: '150ms' }} />
-                      <span className="h-2 w-2 animate-bounce bg-[#09217f]" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
+            {msg.role === 'user' && (
+              <div className="w-7 h-7 rounded-full bg-emerald-600/20 flex items-center justify-center shrink-0 mt-0.5">
+                <User className="w-4 h-4 text-emerald-400" />
+              </div>
+            )}
           </div>
-
-          <div className="composer-input-bar border-t-2 border-[#706b63] bg-[#d8d4cd] px-6 py-5">
-            <div className="composer-input-row flex items-center gap-5">
-              <select
-                value={selectedModel}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
-                title="Select Gemini model"
-                className="retro-input h-[72px] w-[220px] shrink-0 px-4 text-base font-black"
-              >
-                {Object.entries(modelOptions).map(([label, id]) => (
-                  <option key={id} value={id}>Gemini {label}</option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={input}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
-                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleSend()}
-                placeholder={`Message Gemini... (try: show templates, use slack, compose, deploy)`}
-                className="retro-input h-[72px] min-w-0 flex-1 px-6 text-lg"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isTyping}
-                className="retro-button flex h-[72px] shrink-0 items-center gap-3 px-8 text-lg font-black disabled:opacity-50"
-                title={`Send with Gemini ${selectedModelLabel}`}
-              >
-                <Send className="w-8 h-8 text-[#071a7a]" />
-                Send
-              </button>
+        ))}
+        {isTyping && (
+          <div className="flex gap-3">
+            <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
+              <Bot className="w-4 h-4 text-emerald-400 animate-pulse" />
+            </div>
+            <div className="bg-slate-900 rounded-xl px-4 py-3">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-slate-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-slate-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-slate-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             </div>
           </div>
-        </section>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="px-4 py-3 border-t border-slate-800 bg-slate-900">
+        <div className="flex gap-2 items-center">
+          <select
+            value={selectedModel}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModel(e.target.value)}
+            title="Select Gemini model"
+            className="px-2 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-emerald-500/50 max-w-[180px] shrink-0"
+          >
+            {Object.entries(modelOptions).map(([label, id]) => (
+              <option key={id} value={id} className="bg-slate-900 text-slate-300">Gemini {label}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={input}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleSend()}
+            placeholder="Message Gemini... (try: show templates, use slack, compose, deploy)"
+            className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || isTyping}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white rounded-lg transition-colors shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   )

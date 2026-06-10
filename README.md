@@ -859,8 +859,9 @@ Run the integration tests and ensure your new adapter is listed in `/mcp/tools`.
 
 ## 15. License & Attribution
 
-Licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0+).
-See `LICENSE` for the full text.
+Licensed under the Apache License, Version 2.0 (Apache-2.0).
+See `LICENSE` for the full text and `NOTICE` for third-party attributions
+(including the inherited AIWG components, originally MIT-licensed).
 
 **Authors:** plasmaraygun, GoryGrey, royhodge812, sebuh-infsol
 
