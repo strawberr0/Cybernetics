@@ -1,0 +1,16 @@
+# Default owners — must review every PR.
+*                       @strawberr0
+
+# Composer service & middleware
+/cmd/composer/          @strawberr0
+/internal/middleware/   @strawberr0
+
+# CI / security pipelines
+/.github/workflows/     @strawberr0
+
+# Security policy & threat model
+SECURITY.md             @strawberr0
+docs/THREAT_MODEL.md    @strawberr0
+
+# Licence file — protected
+LICENSE                 @strawberr0

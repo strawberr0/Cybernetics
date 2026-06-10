@@ -1,9 +1,30 @@
 services:
   composer:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-local}
     environment:
       PORT: ${COMPOSER_PORT:-4001}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AUTH_TOKEN: ${AUTH_TOKEN:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      MAX_BODY_BYTES: ${MAX_BODY_BYTES:-1048576}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-60}
+      RATE_LIMIT_PER_SEC: ${RATE_LIMIT_PER_SEC:-10}
     ports:
       - "${COMPOSER_PORT:-4001}:${COMPOSER_PORT:-4001}"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - "no-new-privileges:true"
     restart: unless-stopped
+    # Distroless has no shell/wget — rely on orchestrator HTTP probes against
+    # /healthz and /readyz (K8s, Cloud Run). For a plain compose deploy, add a
+    # sidecar curl container or invoke /healthz externally.
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"

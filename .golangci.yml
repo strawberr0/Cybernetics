@@ -1,0 +1,31 @@
+run:
+  timeout: 5m
+  go: "1.22"
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - revive
+    - gocritic
+    - bodyclose
+    - noctx
+    - nolintlint
+    - unconvert
+    - prealloc
+    - gosec
+
+issues:
+  exclude-rules:
+    # Tests routinely ignore close errors and use httptest with simple bodies.
+    - path: _test\.go
+      linters: [errcheck, gosec, bodyclose]
+  max-issues-per-linter: 0
+  max-same-issues: 0

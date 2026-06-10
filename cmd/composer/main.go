@@ -8,9 +8,22 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
+
+	"github.com/strawberr0/cybernetics/internal/middleware"
 )
+
+// build-time metadata injected via -ldflags
+var (
+	buildVersion = "dev"
+	buildCommit  = "unknown"
+)
+
+// readiness is flipped to true once startup probes pass.
+var ready atomic.Bool
 
 // ── Template definitions ────────────────────────────────────────────────
 
@@ -458,7 +471,7 @@ If they want to deploy, use action "show_deploy".
 	if model == "" {
 		model = "gemini-3-flash-preview"
 	}
-	url := fmt.Sprintf("[https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s](https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s)", model, apiKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
@@ -533,49 +546,133 @@ If they want to deploy, use action "show_deploy".
 	})
 }
 
-// ── Middleware ────────────────────────────────────────────────────────
+// ── Health probes ─────────────────────────────────────────────────────
 
-func cors(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		if origin == "" {
-			origin = "*"
-		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(w, r)
+// healthz is a liveness probe — succeeds if the process is responsive.
+// It never depends on external services.
+func healthz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":  "ok",
+		"version": buildVersion,
+		"commit":  buildCommit,
 	})
 }
 
+// readyz is a readiness probe — succeeds once startup completes AND the
+// Gemini API key is configured. Use in K8s/Cloud Run for traffic gating.
+func readyz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !ready.Load() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "starting"})
+		return
+	}
+	if os.Getenv("GEMINI_API_KEY") == "" {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "degraded",
+			"reason": "GEMINI_API_KEY not set",
+		})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": "ready"})
+}
+
+// ── Server bootstrap ─────────────────────────────────────────────────
+
+// envInt parses a positive int env var with a default if unset/invalid.
+func envInt(key string, def int) int {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return def
+}
+
+// envFloat parses a positive float env var with a default if unset/invalid.
+func envFloat(key string, def float64) float64 {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		if n, err := strconv.ParseFloat(v, 64); err == nil && n > 0 {
+			return n
+		}
+	}
+	return def
+}
+
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
+	port := strings.TrimSpace(os.Getenv("PORT"))
+	if port == "" {
+		port = "8080" // Cloud Run convention; override via $PORT.
+	}
+	authToken := os.Getenv("AUTH_TOKEN")
+	corsAllowlist := []string{}
+	if raw := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS")); raw != "" {
+		corsAllowlist = strings.Split(raw, ",")
+	}
+	maxBody := int64(envInt("MAX_BODY_BYTES", 1<<20))
+	rlBurst := envFloat("RATE_LIMIT_BURST", 60)
+	rlRate := envFloat("RATE_LIMIT_PER_SEC", 10)
+
+	if authToken == "" {
+		logger.Warn("AUTH_TOKEN is empty — /api/* endpoints are unauthenticated (dev mode)")
+	}
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", healthz)
+	mux.HandleFunc("/readyz", readyz)
 
-	// API Endpoints
-	mux.HandleFunc("/api/templates", listTemplates)
-	mux.HandleFunc("/api/compose", composeAgent)
-	mux.HandleFunc("/api/deploy", deployAgent)
-	mux.HandleFunc("/api/chat", chatAgent)
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/api/templates", listTemplates)
+	apiMux.Handle("/api/compose", middleware.MaxBody(maxBody)(http.HandlerFunc(composeAgent)))
+	apiMux.Handle("/api/deploy", middleware.MaxBody(maxBody)(http.HandlerFunc(deployAgent)))
+	apiMux.Handle("/api/chat", middleware.MaxBody(maxBody)(http.HandlerFunc(chatAgent)))
 
-	// Serve Static Frontend
-	// This serves files from the ./static folder (where Vite build output is copied)
 	fs := http.FileServer(http.Dir("./static"))
+	rl := middleware.NewRateLimiter(rlBurst, rlRate)
+
+	mux.Handle("/api/", middleware.Chain(
+		apiMux,
+		middleware.BearerAuth(authToken, "/healthz", "/readyz"),
+		rl.Middleware,
+	))
 	mux.Handle("/", fs)
 
-	var handler http.Handler = mux
-	handler = cors(handler)
+	handler := middleware.Chain(
+		mux,
+		middleware.WithRequestID,
+		middleware.AccessLog(logger),
+		middleware.Recover(logger),
+		middleware.SecurityHeaders,
+		middleware.CORS(corsAllowlist),
+	)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3001"
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      90 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 14,
 	}
-	slog.Info("server starting", "port", port)
-	if err := http.ListenAndServe(":"+port, handler); err != nil {
-		slog.Error("server failed", "error", err)
+
+	ready.Store(true)
+	logger.Info("server starting",
+		slog.String("port", port),
+		slog.String("version", buildVersion),
+		slog.String("commit", buildCommit),
+		slog.Bool("auth_enabled", authToken != ""),
+		slog.Int("cors_origins", len(corsAllowlist)),
+	)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Error("server failed", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 }
