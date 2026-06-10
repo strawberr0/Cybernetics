@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react&logoColor=white" alt="React"/>
   <img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
-  <img src="https://img.shields.io/badge/license-Apache%202.0-slate?style=flat-square" alt="License"/>
+  <img src="https://img.shields.io/badge/license-AGPL--3.0-slate?style=flat-square" alt="License"/>
 </p>
 
 <p align="center">
@@ -888,9 +888,12 @@ Run the integration tests and ensure your new adapter is listed in `/mcp/tools`.
 
 ## 15. License & Attribution
 
-Licensed under the Apache License, Version 2.0 (Apache-2.0).
+Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
 See `LICENSE` for the full text and `NOTICE` for third-party attributions
 (including the inherited AIWG components, originally MIT-licensed).
+
+Network use is distribution under the AGPL: anyone who interacts with this
+software over a network is entitled to receive the corresponding source.
 
 **Authors:** plasmaraygun, GoryGrey, royhodge812, sebuh-infsol
 
