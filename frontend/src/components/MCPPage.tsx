@@ -109,14 +109,6 @@ GEMINI_API_KEY  = "your-gemini-key"`,
   "description": "Composable MCP meta-broker"
 }`,
   },
-  {
-    id: 'windsurf',
-    label: 'Windsurf',
-    filename: '~/.codeium/windsurf/mcp_config.json',
-    language: 'json',
-    notes: 'Open Windsurf → Cascade → "MCP Servers" → paste, then "Refresh".',
-    config: jsonStdio(baseEnv),
-  },
 ]
 
 export function MCPPage() {
