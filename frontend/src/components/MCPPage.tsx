@@ -40,27 +40,29 @@ ${envBlock}
 
 const clients: ClientConfig[] = [
   {
+    id: 'antigravity',
+    label: 'Antigravity',
+    filename: 'VS Code settings.json',
+    language: 'json',
+    notes: 'Google Antigravity inherits VS Code MCP wiring under "mcp.servers".',
+    config: `{
+  "mcp.servers": {
+    "cybernetics": {
+      "command": "cybernetics-mcp",
+      "args": [],
+      "env": {
+${baseEnv}
+      }
+    }
+  }
+}`,
+  },
+  {
     id: 'claude',
     label: 'Claude',
     filename: 'Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json  •  Code: ~/.claude.json (or `claude mcp add`)',
     language: 'json',
     notes: 'Same JSON schema across Claude Desktop and Claude Code. Desktop: Linux ~/.config/Claude/, Windows %APPDATA%\\Claude\\. Code: run `claude mcp add cybernetics cybernetics-mcp` or paste into ~/.claude.json.',
-    config: jsonStdio(baseEnv),
-  },
-  {
-    id: 'cursor',
-    label: 'Cursor',
-    filename: '.cursor/mcp.json  (project)  •  ~/.cursor/mcp.json  (global)',
-    language: 'json',
-    notes: 'Cursor reloads MCP servers on save. Restart not required.',
-    config: jsonStdio(baseEnv),
-  },
-  {
-    id: 'windsurf',
-    label: 'Windsurf',
-    filename: '~/.codeium/windsurf/mcp_config.json',
-    language: 'json',
-    notes: 'Open Windsurf → Cascade → "MCP Servers" → paste, then "Refresh".',
     config: jsonStdio(baseEnv),
   },
   {
@@ -79,22 +81,12 @@ POSTGRES_DSN    = "postgresql+asyncpg://user:pass@localhost/cybernetics"
 GEMINI_API_KEY  = "your-gemini-key"`,
   },
   {
-    id: 'antigravity',
-    label: 'Antigravity',
-    filename: 'VS Code settings.json',
+    id: 'cursor',
+    label: 'Cursor',
+    filename: '.cursor/mcp.json  (project)  •  ~/.cursor/mcp.json  (global)',
     language: 'json',
-    notes: 'Google Antigravity inherits VS Code MCP wiring under "mcp.servers".',
-    config: `{
-  "mcp.servers": {
-    "cybernetics": {
-      "command": "cybernetics-mcp",
-      "args": [],
-      "env": {
-${baseEnv}
-      }
-    }
-  }
-}`,
+    notes: 'Cursor reloads MCP servers on save. Restart not required.',
+    config: jsonStdio(baseEnv),
   },
   {
     id: 'devin',
@@ -116,6 +108,14 @@ ${baseEnv}
   "url": "http://localhost:4001",
   "description": "Composable MCP meta-broker"
 }`,
+  },
+  {
+    id: 'windsurf',
+    label: 'Windsurf',
+    filename: '~/.codeium/windsurf/mcp_config.json',
+    language: 'json',
+    notes: 'Open Windsurf → Cascade → "MCP Servers" → paste, then "Refresh".',
+    config: jsonStdio(baseEnv),
   },
 ]
 
