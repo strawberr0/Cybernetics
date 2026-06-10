@@ -28,6 +28,35 @@
 
 ---
 
+## Quick Start (Docker Compose)
+
+```bash
+# 1. Configure (optional — defaults to PORT=4001, GEMINI_API_KEY empty)
+cp .env.example.compose .env
+
+# 2. Build & run
+docker compose up --build
+
+# 3. Open
+open http://localhost:4001
+```
+
+The composer container serves both the built React frontend and the Go `/api/*`
+backend on the port set by `$COMPOSER_PORT` (default **4001**). All ports are
+env-overridable — no values are hardcoded in the image.
+
+### Local dev (no Docker)
+
+```bash
+# Backend (Go) — defaults to :4001, override with PORT=...
+go run ./cmd/composer
+
+# Frontend (Vite) — defaults to :4000, proxies /api -> BACKEND_URL (default http://localhost:4001)
+cd frontend && npm install && npm run dev
+```
+
+---
+
 **Classification:** UNCLASSIFIED / OPEN SOURCE  
 **Authors:** plasmaraygun, GoryGrey, royhodge812, sebuh-infsol  (strawberr0)  
 **Version:** 0.1.1  
