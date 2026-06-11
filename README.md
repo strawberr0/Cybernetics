@@ -57,7 +57,7 @@ cd frontend && npm install && npm run dev
 
 ---
 
-**Classification:** UNCLASSIFIED / OPEN SOURCE  
+**Classification:** OPEN SOURCE  
 **Authors:** plasmaraygun, GoryGrey, royhodge812, sebuh-infsol  (strawberr0)  
 **Version:** 0.1.1  
 **Status:** Production-Ready  
@@ -86,35 +86,35 @@ See the [Quick Start](#quick-start-docker-compose) above for the composer; secti
 ## 2. Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    Google Cloud (VPC-SC)                     │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐  │
-│  │ Cloud Run   │◄──►│  Cloud SQL  │◄──►│ Secret Manager  │  │
-│  │ (Broker)    │    │  (Postgres) │    │                 │  │
-│  └──────┬──────┘    └─────────────┘    └─────────────────┘  │
-│         │                                                    │
-│  ┌──────┴──────────────────────────────────────────────┐   │
-│  │                  Cybernetics Broker                     │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │   │
-│  │  │ Auth MW  │  │ Registry │  │Circuits  │  │Health  │  │   │
-│  │  │ (Bearer) │  │ (Adapters│  │(CBs)     │  │Probes  │  │   │
-│  │  └──────────┘  └──────────┘  └──────────┘  └────────┘  │   │
-│  │  ┌────────────────────────────────────────────────────┐ │   │
-│  │  │            Agent Template Engine                    │ │   │
+┌───────────────────────────────────────────────────────────────────┐
+│                    Google Cloud (VPC-SC)                          │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐        │
+│  │ Cloud Run   │◄──►│  Cloud SQL  │◄──►│ Secret Manager  │        │
+│  │ (Broker)    │    │  (Postgres) │    │                 │        │
+│  └──────┬──────┘    └─────────────┘    └─────────────────┘        │
+│         │                                                         │
+│  ┌──────┴─────────────────────────────────────────────────────┐   │
+│  │                  Cybernetics Broker                        │   │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐      │   │
+│  │  │ Auth MW  │  │ Registry │  │Circuits  │  │Health  │      │   │
+│  │  │ (Bearer) │  │ (Adapters│  │(CBs)     │  │Probes  │      │   │
+│  │  └──────────┘  └──────────┘  └──────────┘  └────────┘      │   │
+│  │  ┌───────────────────────────────────────────────────────┐ │   │
+│  │  │            Agent Template Engine                      │ │   │
 │  │  │  Sentinel  │  DeployAgent │ FinanceAgent │ InfraAgent │ │   │
-│  │  └────────────────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│         │                                                      │
-│  ┌──────┴──────────────────────────────────────────────┐      │
-│  │                  MCP Adapter Layer                   │      │
-│  │  Dynatrace  Elastic  Postgres  GitLab  Arize  Fivetran │      │
-│  │  GitHub     Stripe   AWS       Vercel  Supabase     │      │
-│  │  Cloudflare Browser (Playwright CDP)                 │      │
-│  └──────────────────────────────────────────────────────┘      │
-└──────────────────────────────────────────────────────────────────┘
+│  │  └───────────────────────────────────────────────────────┘ │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│         │                                                         │
+│  ┌──────┴─────────────────────────────────────────────────┐       │
+│  │                  MCP Adapter Layer                     │       │
+│  │  Dynatrace  Elastic  Postgres  GitLab  Arize  Fivetran │       │
+│  │  GitHub     Stripe   AWS       Vercel  Supabase        │       │
+│  │  Cloudflare Browser (Playwright CDP)                   │       │
+│  └────────────────────────────────────────────────────────┘       │
+└───────────────────────────────────────────────────────────────────┘
          │
     ┌────┴──────────────────────────────────────┐
-    │            Google ADK / Vertex AI          │
+    │            Google ADK / Vertex AI         │
     │   (Agent orchestration, LLM-as-a-Judge)   │
     └───────────────────────────────────────────┘
 ```
@@ -131,7 +131,7 @@ See the [Quick Start](#quick-start-docker-compose) above for the composer; secti
 
 ## 3. Cybernetics MCP Server — Usage Guide
 
-Cybernetics is a **first-class MCP server** that exposes its adapters and agent templates as tools over the Model Context Protocol. Any MCP client (Claude Desktop, Cursor, Windsurf, etc.) can connect to it.
+Cybernetics is a **first-class MCP server** that exposes its adapters and agent templates as tools over the Model Context Protocol. Any MCP client (Antigravity, Claude Code, Cursor, Devin, Vims etc.) can connect to it.
 
 ### 3.1 What Is the Cybernetics MCP Server?
 
@@ -167,14 +167,14 @@ Once connected, your MCP client sees **all tools** from **all enabled adapters**
 
 ```
 ┌─────────────┐      stdio       ┌──────────────────────────────────────────┐
-│   Claude    │ ◄──────────────► │  Cybernetics MCP Server                  │
-│   Desktop   │   JSON-RPC 2.0   │  ┌─────────────┐  ┌──────────────────┐  │
-└─────────────┘                  │  │  Registry   │  │  Dynatrace       │  │
-                                 │  │  (loads    │──►│  GitHub          │  │
-                                 │  │  adapters) │  │  Slack           │  │
-                                 │  └─────────────┘  │  Browser...      │  │
-                                 │                   └──────────────────┘  │
-                                 └───────────────────────────────────────────┘
+│ AntiGravity │ ◄──────────────► │  Cybernetics MCP Server                  │
+│   Desktop   │   JSON-RPC 2.0   │  ┌─────────────┐   ┌──────────────────┐  │
+└─────────────┘                  │  │  Registry   │   │  Dynatrace       │  │
+                                 │  │  (loads     │──►│  GitHub          │  │
+                                 │  │  adapters)  │   │  Slack           │  │
+                                 │  └─────────────┘   │  Browser...      │  │
+                                 │                    └──────────────────┘  │
+                                 └──────────────────────────────────────────┘
 ```
 
 **You do not configure each adapter individually.** Adapters are loaded from the Cybernetics broker's registry based on the environment variables already set on the host.
