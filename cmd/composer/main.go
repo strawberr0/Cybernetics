@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/strawberr0/cybernetics/internal/middleware"
-	"github.com/strawberr0/cybernetics/internal/oidc"
+	"github.com/strawberryfield/cybernetics/internal/middleware"
+	"github.com/strawberryfield/cybernetics/internal/oidc"
 )
 
 // oidcAdapter bridges *oidc.Verifier to middleware.TokenVerifier (which
@@ -245,10 +245,11 @@ type DeployRequest struct {
 }
 
 type ChatRequest struct {
-	Message string        `json:"message"`
-	History []ChatMessage `json:"history"`
-	Model   string        `json:"model"`
-	Context ChatContext   `json:"context"`
+	Message   string        `json:"message"`
+	History   []ChatMessage `json:"history"`
+	Model     string        `json:"model"`
+	GeminiKey string        `json:"gemini_key"`
+	Context   ChatContext   `json:"context"`
 }
 
 type ChatMessage struct {
@@ -276,6 +277,11 @@ func callGemini(ctx context.Context, prompt string) (string, error) {
 		return "", fmt.Errorf("GEMINI_API_KEY not set")
 	}
 
+	model := os.Getenv("GEMINI_MODEL")
+	if model == "" {
+		model = "gemini-3-flash-preview"
+	}
+
 	body := map[string]any{
 		"contents": []map[string]any{
 			{"parts": []map[string]any{{"text": prompt}}},
@@ -287,7 +293,7 @@ func callGemini(ctx context.Context, prompt string) (string, error) {
 	}
 	b, _ := json.Marshal(body)
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=%s", apiKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(b))
 	if err != nil {
 		return "", err
@@ -410,6 +416,62 @@ func deployAgent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// extractJSONEnvelope returns the JSON object substring from a Gemini reply,
+// tolerating: ```json fences, plain ``` fences, leading/trailing prose, and
+// bare top-level objects. Returns "" if no balanced object is found.
+func extractJSONEnvelope(text string) string {
+	s := strings.TrimSpace(text)
+	if i := strings.Index(s, "```json"); i != -1 {
+		s = s[i+7:]
+		if j := strings.Index(s, "```"); j != -1 {
+			return strings.TrimSpace(s[:j])
+		}
+	}
+	if i := strings.Index(s, "```"); i != -1 {
+		s = s[i+3:]
+		if j := strings.Index(s, "```"); j != -1 {
+			candidate := strings.TrimSpace(s[:j])
+			if strings.HasPrefix(candidate, "{") {
+				return candidate
+			}
+		}
+	}
+	start := strings.Index(s, "{")
+	if start == -1 {
+		return ""
+	}
+	depth, inStr, esc := 0, false, false
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		if inStr {
+			if esc {
+				esc = false
+				continue
+			}
+			if c == '\\' {
+				esc = true
+				continue
+			}
+			if c == '"' {
+				inStr = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inStr = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return s[start : i+1]
+			}
+		}
+	}
+	return ""
+}
+
 func chatAgent(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -417,9 +479,12 @@ func chatAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := strings.TrimSpace(req.GeminiKey)
 	if apiKey == "" {
-		http.Error(w, "GEMINI_API_KEY not set", http.StatusServiceUnavailable)
+		apiKey = os.Getenv("GEMINI_API_KEY")
+	}
+	if apiKey == "" {
+		http.Error(w, "GEMINI_API_KEY not set (provide via server env or `gemini_key` in request)", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -526,22 +591,17 @@ If they want to deploy, use action "show_deploy".
 	action := "none"
 	reply := text
 
-	if idx := strings.Index(text, "```json"); idx != -1 {
-		end := strings.Index(text[idx+7:], "```")
-		if end != -1 {
-			jsonStr := text[idx+7 : idx+7+end]
-			jsonStr = strings.TrimSpace(jsonStr)
-			var parsed map[string]any
-			if err := json.Unmarshal([]byte(jsonStr), &parsed); err == nil {
-				if a, ok := parsed["action"].(string); ok {
-					action = a
-				}
-				if r, ok := parsed["reply"].(string); ok {
-					reply = r
-				}
-				if d, ok := parsed["action_data"]; ok {
-					actionData = d
-				}
+	if jsonStr := extractJSONEnvelope(text); jsonStr != "" {
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(jsonStr), &parsed); err == nil {
+			if a, ok := parsed["action"].(string); ok {
+				action = a
+			}
+			if r, ok := parsed["reply"].(string); ok {
+				reply = r
+			}
+			if d, ok := parsed["action_data"]; ok {
+				actionData = d
 			}
 		}
 	}

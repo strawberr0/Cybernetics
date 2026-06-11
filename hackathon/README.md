@@ -103,7 +103,7 @@ hackathon/
 1. Start the broker: `python -m broker.server`
 2. Query tools: `curl http://localhost:8000/tools`
 3. Test GitLab integration: `curl -X POST http://localhost:8000/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"gitlab_get_project","params":{"project_id":"1"},"id":1}'`
-4. Test GitHub integration: `curl -X POST http://localhost:8000/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"github_get_repo","params":{"owner":"strawberr0","repo":"Cybernetics"},"id":2}'`
+4. Test GitHub integration: `curl -X POST http://localhost:8000/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"github_get_repo","params":{"owner":"strawberryfield","repo":"Cybernetics"},"id":2}'`
 5. Check audit log: `cat logs/audit.jsonl`
 
 ### Full Demo

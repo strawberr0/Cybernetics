@@ -13,7 +13,7 @@
 **Do not** open a public GitHub issue.
 
 1. Open a private security advisory via
-   <https://github.com/strawberr0/Cybernetics/security/advisories/new>.
+   <https://github.com/strawberryfield/Cybernetics/security/advisories/new>.
 2. Include: a reproduction, the impacted version/commit, and an impact
    assessment (CIA, blast radius).
 3. We will acknowledge within **72 hours** and provide a remediation timeline

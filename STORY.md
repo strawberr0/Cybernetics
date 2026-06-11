@@ -106,7 +106,7 @@ approval gates. One control plane. One audit trail. One bearer token.
 - **Agents need rails, not cages.** Sentinel middleware, circuit breakers,
   approval gates, audit logs — these are what turn a "cool demo" into
   something a Fortune 10 SRE team will actually run in prod.
-- **Gemini 3 is genuinely good at codegen** when you give it a constrained
+- **Gemini 3.5 is genuinely good at codegen** when you give it a constrained
   catalog and a strict output schema. Hallucinations collapse.
 
 ## What's next
@@ -120,7 +120,7 @@ approval gates. One control plane. One audit trail. One bearer token.
 
 ## Links
 
-- **Repo:** https://github.com/AEyeOS/cybernetics (AGPL-3.0)
-- **Live composer:** https://cybernetics.run
+- **Repo:** https://github.com/strawberryfield/cybernetics (AGPL-3.0)
+- **Live composer:** https://cybernetics.sh
 - **Docs:** `docs/THREAT_MODEL.md`, `docs/CONTROLS_NIST_800_53.md`
 - **Track:** GitLab

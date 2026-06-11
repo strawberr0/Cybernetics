@@ -1,4 +1,4 @@
-import { Bot, Github, Server, Terminal } from 'lucide-react'
+import { Bot, Gitlab, Server, Terminal } from 'lucide-react'
 
 interface HeaderProps {
   page: 'composer' | 'mcp'
@@ -36,13 +36,13 @@ export function Header({ page, onNavigate }: HeaderProps) {
           </nav>
         </div>
         <a
-          href="https://github.com/strawberr0/cybernetics"
+          href="https://gitlab.com/strawberryfield/cybernetics"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3 text-lg font-bold text-[#071a7a] underline decoration-2 underline-offset-4 hover:text-[#0b2db3]"
         >
-          <Github className="w-8 h-8 text-black" />
-          <span className="hidden sm:inline">GitHub</span>
+          <Gitlab className="w-8 h-8 text-[#fc6d26]" />
+          <span className="hidden sm:inline">GitLab</span>
         </a>
       </div>
     </header>

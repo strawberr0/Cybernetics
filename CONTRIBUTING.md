@@ -13,7 +13,7 @@
 ## Local setup
 
 ```bash
-git clone git@github.com:strawberr0/Cybernetics.git
+git clone git@github.com:strawberryfield/Cybernetics.git
 cd Cybernetics
 
 # Backend
@@ -60,7 +60,7 @@ Body wrapped at 80 cols, list bullets allowed. Reference the issue / PR.
 ## Security disclosures
 
 **Do not** open public issues for security bugs. Open a private advisory at
-<https://github.com/strawberr0/Cybernetics/security/advisories/new>.
+<https://github.com/strawberryfield/Cybernetics/security/advisories/new>.
 See [`SECURITY.md`](SECURITY.md) for the full policy.
 
 ## License

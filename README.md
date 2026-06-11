@@ -58,7 +58,7 @@ cd frontend && npm install && npm run dev
 ---
 
 **Classification:** OPEN SOURCE  
-**Authors:** plasmaraygun, GoryGrey, royhodge812, sebuh-infsol  (strawberr0)  
+**Authors:** plasmaraygun, GoryGrey, royhodge812, sebuh-infsol  (strawberryfield)  
 **Version:** 0.1.1  
 **Status:** Production-Ready  
 
