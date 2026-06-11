@@ -1,4 +1,4 @@
 module github.com/strawberr0/cybernetics
 
-go 1.22
+go 1.23
 

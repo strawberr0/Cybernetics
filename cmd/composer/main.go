@@ -226,10 +226,10 @@ var adapters = []Adapter{
 // ── Request / Response types ──────────────────────────────────────────
 
 type ComposeRequest struct {
-	Template   string            `json:"template"`
-	Adapters   []string          `json:"adapters"`
-	EnvVars    map[string]string `json:"env_vars"`
-	Prompt     string            `json:"prompt"`
+	Template string            `json:"template"`
+	Adapters []string          `json:"adapters"`
+	EnvVars  map[string]string `json:"env_vars"`
+	Prompt   string            `json:"prompt"`
 }
 
 type ComposeResponse struct {
@@ -326,7 +326,7 @@ func callGemini(ctx context.Context, prompt string) (string, error) {
 
 func listTemplates(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"templates": templates,
 		"adapters":  adapters,
 	})
@@ -378,7 +378,7 @@ CMD ["python", "-m", "agent"]
 `
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ComposeResponse{
+	_ = json.NewEncoder(w).Encode(ComposeResponse{
 		AgentCode:  code,
 		Dockerfile: dockerfile,
 	})
@@ -397,7 +397,7 @@ func deployAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"status":     "ready",
 		"message":    "Agent package generated. Deploy with gcloud or the CLI.",
 		"project_id": req.ProjectID,
@@ -547,7 +547,7 @@ If they want to deploy, use action "show_deploy".
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ChatResponse{
+	_ = json.NewEncoder(w).Encode(ChatResponse{
 		Reply:      reply,
 		Action:     action,
 		ActionData: actionData,

@@ -11,15 +11,6 @@ import (
 	"time"
 )
 
-func newReq(method, path, body string) *httptest.ResponseRecorder {
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.RemoteAddr = "10.0.0.1:1234"
-	_ = req // appease linters in older Go
-	_ = rec
-	return rec
-}
-
 func okHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))

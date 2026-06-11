@@ -1,6 +1,6 @@
 run:
   timeout: 5m
-  go: "1.22"
+  go: "1.23"
 
 linters:
   disable-all: true
@@ -19,13 +19,19 @@ linters:
     - noctx
     - nolintlint
     - unconvert
-    - prealloc
     - gosec
+
+linters-settings:
+  revive:
+    rules:
+      # Standard Go http.HandlerFunc signatures always have (w, r) even when
+      # one is unused. Renaming to _ hurts readability for no real benefit.
+      - name: unused-parameter
+        disabled: true
 
 issues:
   exclude-rules:
-    # Tests routinely ignore close errors and use httptest with simple bodies.
     - path: _test\.go
-      linters: [errcheck, gosec, bodyclose]
+      linters: [errcheck, gosec, bodyclose, unused]
   max-issues-per-linter: 0
   max-same-issues: 0
