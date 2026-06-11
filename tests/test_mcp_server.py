@@ -189,3 +189,112 @@ def test_stdout_contains_only_jsonrpc_frames():
             proc.wait(timeout=2)
         except subprocess.TimeoutExpired:
             proc.kill()
+
+
+# ---------------------------------------------------------------------------
+# JSON-RPC 2.0 spec compliance regression tests
+# ---------------------------------------------------------------------------
+
+def _drain(proc: subprocess.Popen, settle: float = 0.1) -> None:
+    """Drain any queued response frames before the next assertion."""
+    import select  # local import; only needed for the spec tests
+    end = time.time() + settle
+    while time.time() < end:
+        ready, _, _ = select.select([proc.stdout], [], [], 0.02)
+        if not ready:
+            break
+        if not proc.stdout.readline():
+            break
+
+
+def test_notification_receives_no_response(initialized_server):
+    """JSON-RPC 2.0 §4.1: a request without `id` is a notification and MUST NOT
+    receive a response, even on error."""
+    import select
+    _send(initialized_server, {"jsonrpc": "2.0", "method": "tools/list"})  # no id
+    ready, _, _ = select.select([initialized_server.stdout], [], [], 0.4)
+    assert not ready, "server replied to a notification"
+
+
+def test_missing_method_returns_invalid_request(initialized_server):
+    _send(initialized_server, {"jsonrpc": "2.0", "id": 100})
+    reply = _recv(initialized_server)
+    assert reply.get("error", {}).get("code") == -32600
+
+
+def test_wrong_jsonrpc_version_returns_invalid_request(initialized_server):
+    _send(initialized_server, {"jsonrpc": "1.0", "id": 101, "method": "tools/list"})
+    reply = _recv(initialized_server)
+    assert reply.get("error", {}).get("code") == -32600
+
+
+def test_batch_request_does_not_crash_server(initialized_server):
+    """JSON-RPC 2.0 §6: server must handle batch arrays without crashing."""
+    _send(initialized_server, [
+        {"jsonrpc": "2.0", "id": "b1", "method": "tools/list"},
+        {"jsonrpc": "2.0", "id": "b2", "method": "tools/list"},
+    ])
+    received_ids = []
+    deadline = time.time() + 2.0
+    while len(received_ids) < 2 and time.time() < deadline:
+        try:
+            r = _recv(initialized_server, timeout=0.5)
+        except TimeoutError:
+            break
+        if isinstance(r, list):
+            received_ids.extend(item.get("id") for item in r)
+        else:
+            received_ids.append(r.get("id"))
+    assert sorted(received_ids, key=str) == ["b1", "b2"]
+    assert initialized_server.poll() is None
+
+
+def test_string_id_round_trips(initialized_server):
+    _drain(initialized_server)
+    _send(initialized_server, {"jsonrpc": "2.0", "id": "abc-string-id", "method": "tools/list"})
+    reply = _recv(initialized_server)
+    assert reply.get("id") == "abc-string-id"
+
+
+def test_initialized_notification_is_silent(initialized_server):
+    import select
+    _drain(initialized_server)
+    _send(initialized_server, {"jsonrpc": "2.0", "method": "initialized"})
+    ready, _, _ = select.select([initialized_server.stdout], [], [], 0.3)
+    assert not ready, "server replied to the 'initialized' notification"
+
+
+def test_500kb_unicode_argument_does_not_crash(initialized_server):
+    """Stress: 500 KB UTF-8 argument with emoji must round-trip safely."""
+    big = ("héllo 🚀 αβγ 中文 — " * 5000)[:500_000]
+    _send(initialized_server, {
+        "jsonrpc": "2.0", "id": "big", "method": "tools/call",
+        "params": {"name": "gitlab_gitlab_get_file",
+                   "arguments": {"file_path": big, "ref": "master"}},
+    })
+    reply = _recv(initialized_server, timeout=15.0)
+    assert "result" in reply
+    assert initialized_server.poll() is None
+
+
+def test_100_sequential_requests_preserve_ordering(initialized_server):
+    for i in range(100):
+        _send(initialized_server, {"jsonrpc": "2.0", "id": i, "method": "tools/list"})
+    received = [_recv(initialized_server, timeout=10.0).get("id") for _ in range(100)]
+    assert received == list(range(100))
+
+
+def test_closing_stdin_terminates_server_cleanly():
+    proc = _spawn()
+    try:
+        _send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        _recv(proc)
+        proc.stdin.close()
+        deadline = time.time() + 3.0
+        while time.time() < deadline and proc.poll() is None:
+            time.sleep(0.05)
+        assert proc.poll() is not None, "server did not exit on EOF"
+        assert proc.returncode == 0
+    finally:
+        if proc.poll() is None:
+            proc.kill()

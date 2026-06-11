@@ -26,16 +26,34 @@ class MCPServer:
         sys.stdout.write(raw + "\n")
         sys.stdout.flush()
 
-    def _reply(self, req_id: Any, result: Any) -> None:
+    def _reply(self, req_id: Any, result: Any, *, is_notification: bool = False) -> None:
+        # JSON-RPC 2.0 §4.1: notifications MUST NOT receive a response.
+        if is_notification:
+            return
         self._send({"jsonrpc": "2.0", "id": req_id, "result": result})
 
-    def _error(self, req_id: Any, code: int, message: str) -> None:
+    def _error(self, req_id: Any, code: int, message: str, *, is_notification: bool = False) -> None:
+        if is_notification:
+            return
         self._send({"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}})
 
     async def _handle(self, req: Dict[str, Any]) -> None:
-        method = req.get("method")
+        # Spec validation (JSON-RPC 2.0 §4). Treat malformed envelopes as Invalid Request.
+        # A notification is a request without an `id` member; we must never reply to it.
+        is_notification = "id" not in req
         req_id = req.get("id")
-        params = req.get("params", {})
+        method = req.get("method")
+        params = req.get("params", {}) or {}
+
+        if req.get("jsonrpc") != "2.0":
+            self._error(req_id, -32600, "Invalid Request: jsonrpc must be '2.0'", is_notification=is_notification)
+            return
+        if not isinstance(method, str) or not method:
+            self._error(req_id, -32600, "Invalid Request: method must be a non-empty string", is_notification=is_notification)
+            return
+        if not isinstance(params, (dict, list)):
+            self._error(req_id, -32602, "Invalid params: must be object or array", is_notification=is_notification)
+            return
 
         if method == "initialize":
             self._initialized = True
@@ -47,7 +65,7 @@ class MCPServer:
             return
 
         if not self._initialized:
-            self._error(req_id, -32000, "Server not initialized")
+            self._error(req_id, -32000, "Server not initialized", is_notification=is_notification)
             return
 
         if method == "initialized":
@@ -68,7 +86,7 @@ class MCPServer:
                         "required": t.get("required", []),
                     },
                 })
-            self._reply(req_id, {"tools": mcp_tools})
+            self._reply(req_id, {"tools": mcp_tools}, is_notification=is_notification)
             return
 
         if method == "tools/call":
@@ -76,7 +94,7 @@ class MCPServer:
             arguments = params.get("arguments", {})
             # Parse adapter_tool name format
             if "_" not in name:
-                self._error(req_id, -32602, "Invalid tool name format (expected adapter_tool)")
+                self._error(req_id, -32602, "Invalid tool name format (expected adapter_tool)", is_notification=is_notification)
                 return
             adapter_name, tool_name = name.split("_", 1)
             try:
@@ -87,14 +105,35 @@ class MCPServer:
                 else:
                     is_error = False
                 content = [{"type": "text", "text": json.dumps(payload, default=str)}]
-                self._reply(req_id, {"content": content, "isError": is_error})
+                self._reply(req_id, {"content": content, "isError": is_error}, is_notification=is_notification)
             except Exception as exc:
                 logger.error("mcp_tool_call_failed", adapter=adapter_name, tool=tool_name, error=str(exc))
                 content = [{"type": "text", "text": str(exc)}]
-                self._reply(req_id, {"content": content, "isError": True})
+                self._reply(req_id, {"content": content, "isError": True}, is_notification=is_notification)
             return
 
-        self._error(req_id, -32601, f"Method not found: {method}")
+        self._error(req_id, -32601, f"Method not found: {method}", is_notification=is_notification)
+
+    async def _dispatch(self, req: Any) -> None:
+        """Dispatch a parsed JSON-RPC envelope. Handles single requests and
+        batch arrays per JSON-RPC 2.0 §6."""
+        if isinstance(req, list):
+            if not req:
+                self._send({"jsonrpc": "2.0", "id": None,
+                            "error": {"code": -32600, "message": "Invalid Request: empty batch"}})
+                return
+            for item in req:
+                if isinstance(item, dict):
+                    await self._handle(item)
+                else:
+                    self._send({"jsonrpc": "2.0", "id": None,
+                                "error": {"code": -32600, "message": "Invalid Request: batch member must be object"}})
+            return
+        if isinstance(req, dict):
+            await self._handle(req)
+            return
+        self._send({"jsonrpc": "2.0", "id": None,
+                    "error": {"code": -32600, "message": "Invalid Request: must be object or array"}})
 
     async def run(self) -> None:
         logger.info("mcp_server_started", transport="stdio")
@@ -107,7 +146,7 @@ class MCPServer:
             except json.JSONDecodeError:
                 self._send({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}})
                 continue
-            await self._handle(req)
+            await self._dispatch(req)
 
 
 async def main() -> None:
