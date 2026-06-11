@@ -252,11 +252,11 @@ func (v *Verifier) refreshLocked(ctx context.Context) error {
 
 	var ks struct {
 		Keys []struct {
-			Kid string `json:"kid"`
-			Kty string `json:"kty"`
-			Alg string `json:"alg"`
-			N   string `json:"n"`
-			E   string `json:"e"`
+			Kid string   `json:"kid"`
+			Kty string   `json:"kty"`
+			Alg string   `json:"alg"`
+			N   string   `json:"n"`
+			E   string   `json:"e"`
 			X5c []string `json:"x5c,omitempty"`
 		} `json:"keys"`
 	}
