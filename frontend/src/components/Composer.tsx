@@ -653,26 +653,38 @@ export function Composer() {
         ? `All ${totalRequired} required key(s) are already configured.`
         : `${totalMissing} of ${totalRequired} required key(s) are missing: ${missing.map(m => `${m.adapter} (${m.vars.join(', ')})`).join('; ')}.`
 
+    // Visible deterministic summary \u2014 not subject to LLM paraphrasing.
+    const adapterLine = `**Adapters loaded:** ${t.adapters.join(', ')}`
+    let keyLine: string
+    if (totalRequired === 0) {
+      keyLine = `**Keys:** none required for these adapters \u2014 ready to compose.`
+    } else if (totalMissing === 0) {
+      keyLine = `**Keys:** \u2705 all ${totalRequired} required key(s) configured.`
+    } else {
+      const missingDetail = missing
+        .map(m => `\`${m.adapter}\` \u2192 ${m.vars.map(v => `\`${v}\``).join(', ')}`)
+        .join('; ')
+      keyLine = `**Keys missing (${totalMissing}/${totalRequired}):** ${missingDetail}\n\nOpen the **Keys** panel (left rail) to paste them in, or type \`set <NAME>=<value>\`.`
+    }
+
     const summary: Message = {
       id: generateId(),
       role: 'assistant',
-      content: `Selected template: **${t.name}**. Default adapters loaded: ${t.adapters.join(', ')}.`,
+      content: `Selected template: **${t.name}** \u2014 _${t.description}_\n\n${adapterLine}\n\n${keyLine}`,
       timestamp: new Date(),
     }
     setMessages(prev => {
       const next = [...prev, summary]
-      // Hidden synthetic prompt: gives the model the full state (template,
-      // adapters, missing keys) so it can proactively coach the user without
-      // them having to type anything first.
+      // Hidden synthetic prompt to the LLM: provides the same state so the
+      // follow-up coaching reply is consistent with the deterministic summary
+      // above. The LLM is told NOT to repeat the key-status (already shown).
       const synthetic = [
-        `The user just selected the **${t.name}** template (${t.description}) with default adapters: ${t.adapters.join(', ')}.`,
+        `The user just selected the **${t.name}** template (${t.description}).`,
         `Key status: ${statusLine}`,
-        `In 2\u20134 short sentences:`,
-        `1. briefly explain what this template does,`,
+        `Without repeating the key list (already shown to the user), in 2 short sentences:`,
         totalMissing > 0
-          ? `2. tell them they still need to configure the missing keys above (mention them by name) and to open the **Keys** panel to paste them, then`
-          : `2. confirm they're ready to compose, then`,
-        `3. ask whether they'd like to tweak adapters, fill in / update env vars, or go straight to compose.`,
+          ? `acknowledge they have missing keys to configure first, and offer to help (e.g. by walking through what each adapter does or which keys are most important).`
+          : `confirm they're ready, and ask if they'd like to customize the adapters or go straight to compose.`,
       ].join(' ')
       void handleChat(synthetic, next)
       return next
