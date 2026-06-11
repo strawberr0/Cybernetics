@@ -488,11 +488,13 @@ func deployAgent(w http.ResponseWriter, r *http.Request) {
 
 	// BYOK live-deploy mode: write SA JSON + agent source to a tmpdir, run
 	// gcloud, scrub the dir on every exit path.
+	// Application-level errors (invalid SA, gcloud non-zero, etc.) are reported
+	// as 200 + {status:"error"} so frontends and edges that replace 5xx with a
+	// branded error page (e.g. Cloudflare) still surface the real error envelope.
+	w.Header().Set("Content-Type", "application/json")
 	result, err := runLiveDeploy(r.Context(), req)
 	if err != nil {
 		slog.Error("live deploy failed", "err", err, "project", req.ProjectID, "region", req.Region, "service", req.ServiceName)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway)
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":  "error",
 			"mode":    "live",
@@ -501,7 +503,6 @@ func deployAgent(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
 }
 
