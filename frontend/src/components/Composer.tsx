@@ -631,6 +631,28 @@ export function Composer() {
   function selectTemplate(t: Template) {
     setSelectedTemplate(t)
     setSelectedAdapters(new Set(t.adapters))
+
+    // Compute which required env vars are still missing for this template's
+    // default adapters so the assistant can guide the user accurately.
+    const required: { adapter: string; vars: string[] }[] = []
+    const missing: { adapter: string; vars: string[] }[] = []
+    for (const a of t.adapters) {
+      const vars = envMap[a] || []
+      if (vars.length === 0) continue
+      required.push({ adapter: a, vars })
+      const miss = vars.filter(v => !envVars[v] || !envVars[v].trim())
+      if (miss.length > 0) missing.push({ adapter: a, vars: miss })
+    }
+
+    const totalRequired = required.reduce((n, r) => n + r.vars.length, 0)
+    const totalMissing = missing.reduce((n, r) => n + r.vars.length, 0)
+
+    const statusLine = totalRequired === 0
+      ? 'No secret keys are required for these adapters.'
+      : totalMissing === 0
+        ? `All ${totalRequired} required key(s) are already configured.`
+        : `${totalMissing} of ${totalRequired} required key(s) are missing: ${missing.map(m => `${m.adapter} (${m.vars.join(', ')})`).join('; ')}.`
+
     const summary: Message = {
       id: generateId(),
       role: 'assistant',
@@ -639,11 +661,19 @@ export function Composer() {
     }
     setMessages(prev => {
       const next = [...prev, summary]
-      // Kick the assistant to proactively coach the user about this template.
-      // The synthetic prompt is sent to the model only (not rendered as a
-      // user bubble) so the user sees a guidance reply without having to
-      // type anything first.
-      const synthetic = `The user just selected the **${t.name}** template (${t.description}) with default adapters: ${t.adapters.join(', ')}. In 2\u20133 short sentences, briefly explain what this template is for, then ask whether they'd like to tweak adapters/env vars or go straight to compose.`
+      // Hidden synthetic prompt: gives the model the full state (template,
+      // adapters, missing keys) so it can proactively coach the user without
+      // them having to type anything first.
+      const synthetic = [
+        `The user just selected the **${t.name}** template (${t.description}) with default adapters: ${t.adapters.join(', ')}.`,
+        `Key status: ${statusLine}`,
+        `In 2\u20134 short sentences:`,
+        `1. briefly explain what this template does,`,
+        totalMissing > 0
+          ? `2. tell them they still need to configure the missing keys above (mention them by name) and to open the **Keys** panel to paste them, then`
+          : `2. confirm they're ready to compose, then`,
+        `3. ask whether they'd like to tweak adapters, fill in / update env vars, or go straight to compose.`,
+      ].join(' ')
       void handleChat(synthetic, next)
       return next
     })
