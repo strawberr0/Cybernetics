@@ -36,14 +36,22 @@ function saveSessions(sessions: Session[]) {
 interface Settings {
   geminiKey: string
   defaultModel: string
+  gcpSaJson: string
 }
 
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Settings>
+      return {
+        geminiKey: parsed.geminiKey || '',
+        defaultModel: parsed.defaultModel || 'gemini-3-flash-preview',
+        gcpSaJson: parsed.gcpSaJson || '',
+      }
+    }
   } catch {}
-  return { geminiKey: '', defaultModel: 'gemini-3-flash-preview' }
+  return { geminiKey: '', defaultModel: 'gemini-3-flash-preview', gcpSaJson: '' }
 }
 
 function saveSettings(s: Settings) {
@@ -226,6 +234,7 @@ export function Composer() {
   const [activePanel, setActivePanel] = useState<'templates' | 'adapters' | 'keys' | 'deploy' | 'settings' | null>(null)
   const initialSettings = useMemo(() => loadSettings(), [])
   const [geminiKey, setGeminiKey] = useState(initialSettings.geminiKey)
+  const [gcpSaJson, setGcpSaJson] = useState(initialSettings.gcpSaJson)
   const [serverConfig, setServerConfig] = useState<{ server_has_gemini_key: boolean; auth_mode: string; version?: string } | null>(null)
   const [sessions, setSessions] = useState<Session[]>(() => loadSessions())
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => generateId())
@@ -505,7 +514,7 @@ export function Composer() {
     }
   }
 
-  async function handleDeploy(projectId: string, region: string, serviceName: string, gcpSaJson?: string) {
+  async function handleDeploy(projectId: string, region: string, serviceName: string) {
     setIsTyping(true)
     try {
       const body: Record<string, unknown> = {
@@ -514,6 +523,7 @@ export function Composer() {
         service_name: serviceName || `cybernetics-${selectedTemplate?.name || 'agent'}`,
         agent_code: agentCode,
       }
+      // Pull SA JSON from persisted settings (Settings panel → GCP Service Account).
       if (gcpSaJson && gcpSaJson.trim()) {
         body.gcp_sa_json = gcpSaJson
       }
@@ -522,7 +532,13 @@ export function Composer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const data = await r.json()
+      const text = await r.text()
+      let data: any = null
+      try { data = JSON.parse(text) } catch { /* non-JSON fallback below */ }
+      if (!data) {
+        addMessage({ role: 'assistant', content: `Deploy failed (HTTP ${r.status}): ${text.slice(0, 400)}` })
+        return
+      }
       const isLive = data.mode === 'live' && data.status === 'deployed'
       const header = isLive
         ? `✅ Deployed to Cloud Run\n\n**Service URL:** ${data.service_url || '(provisioning)'}`
@@ -885,6 +901,50 @@ export function Composer() {
                   <p className="text-xs font-bold opacity-70">Stored locally in your browser. Used as fallback when the server has no GEMINI_API_KEY. <strong>Not recommended for production.</strong></p>
                 </section>
               )}
+              <section className="space-y-3">
+                <h3 className="text-sm font-black uppercase tracking-wider">GCP Service-Account JSON</h3>
+                <p className="text-xs font-bold opacity-70 leading-snug">
+                  Paste a GCP service-account key with <code>Cloud Run Admin</code> + <code>Cloud Build Editor</code> + <code>Storage Admin</code> + <code>Service Account User</code> roles to enable live deploys. Stored locally in your browser only. Sent per deploy request, used to auth gcloud server-side, then scrubbed.
+                </p>
+                <textarea
+                  value={gcpSaJson}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setGcpSaJson(e.target.value); persistSettings({ gcpSaJson: e.target.value }) }}
+                  placeholder='{"type":"service_account","project_id":"...","private_key":"..."}'
+                  rows={6}
+                  spellCheck={false}
+                  className="retro-input w-full px-3 py-2 text-xs font-mono"
+                />
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      try {
+                        const text = await readFileAsText(f)
+                        setGcpSaJson(text)
+                        persistSettings({ gcpSaJson: text })
+                      } catch { /* ignore */ }
+                      e.target.value = ''
+                    }}
+                    className="retro-input px-3 py-1.5 text-xs font-bold cursor-pointer"
+                  />
+                  {gcpSaJson && (
+                    <button
+                      onClick={() => { setGcpSaJson(''); persistSettings({ gcpSaJson: '' }) }}
+                      className="retro-button px-3 py-1.5 text-xs font-black"
+                    >
+                      Clear
+                    </button>
+                  )}
+                  <span className="text-xs font-bold opacity-70">
+                    {gcpSaJson && gcpSaJson.trim()
+                      ? `✓ ${gcpSaJson.length} chars stored`
+                      : 'No key stored — deploys run in manifest mode'}
+                  </span>
+                </div>
+              </section>
               <section className="space-y-2">
                 <h3 className="text-sm font-black uppercase tracking-wider">Auth Mode</h3>
                 <p className="text-sm font-bold opacity-80">
@@ -955,31 +1015,37 @@ export function Composer() {
                 </div>
               </div>
 
-              <div className="retro-card p-4 space-y-2">
-                <label className="text-xs font-black uppercase tracking-wider block">GCP Service-Account JSON (optional)</label>
-                <p className="text-xs opacity-70 leading-snug">
-                  Drop in a key for a SA with <code>Cloud Run Admin</code> + <code>Cloud Build Editor</code> + <code>Storage Admin</code> + <code>Service Account User</code> roles to <strong>actually deploy</strong>. Leave empty to get the gcloud command back instead. Key is held in request memory only and scrubbed on response.
-                </p>
-                <input
-                  type="file"
-                  accept="application/json,.json"
-                  id="deploy-sa-file"
-                  className="retro-input w-full px-3 py-2 text-sm font-bold cursor-pointer"
-                />
+              <div className="border-2 border-[#5d5850] bg-[#dedad3] p-4 shadow-[3px_3px_0_rgba(0,0,0,0.25)] flex items-start gap-3">
+                {gcpSaJson && gcpSaJson.trim() ? (
+                  <>
+                    <span className="inline-block h-3 w-3 bg-[#39e94c] mt-1.5" />
+                    <div className="text-sm font-bold leading-snug">
+                      <strong>Live deploy enabled.</strong> GCP service-account configured in Settings; this server will run <code>gcloud run deploy</code> on your behalf.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-block h-3 w-3 bg-[#e9b339] mt-1.5" />
+                    <div className="text-sm font-bold leading-snug flex-1">
+                      <strong>Manifest mode.</strong> Without a GCP service-account key, this returns the <code>gcloud</code> command for you to run locally.{' '}
+                      <button
+                        onClick={() => setActivePanel('settings')}
+                        className="underline font-black hover:no-underline"
+                      >
+                        Add a key in Settings →
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               <button
-                onClick={async () => {
+                onClick={() => {
                   const p = (document.getElementById('deploy-project') as HTMLInputElement)?.value || ''
                   const r = (document.getElementById('deploy-region') as HTMLSelectElement)?.value || 'us-central1'
                   const s = (document.getElementById('deploy-service') as HTMLInputElement)?.value || ''
-                  const fileInput = document.getElementById('deploy-sa-file') as HTMLInputElement | null
-                  let sa = ''
-                  if (fileInput?.files && fileInput.files[0]) {
-                    try { sa = await readFileAsText(fileInput.files[0]) } catch { sa = '' }
-                  }
                   setActivePanel(null)
-                  handleDeploy(p, r, s, sa)
+                  handleDeploy(p, r, s)
                 }}
                 className="retro-button flex items-center gap-3 px-6 py-3 text-base font-black"
               >

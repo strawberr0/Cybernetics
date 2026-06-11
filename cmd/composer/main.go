@@ -449,20 +449,31 @@ func deployAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// All validation errors are returned as 200 + {status:"error"} JSON so the
+	// frontend (which always parses response as JSON) can render the message
+	// in chat. Edges like Cloudflare also strip plaintext 4xx bodies.
+	w.Header().Set("Content-Type", "application/json")
+	writeErr := func(msg string) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":  "error",
+			"mode":    "validation",
+			"message": msg,
+		})
+	}
 	if req.ProjectID == "" || req.Region == "" || req.ServiceName == "" {
-		http.Error(w, "missing project_id, region, or service_name", http.StatusBadRequest)
+		writeErr("Project ID, region, and service name are all required.")
 		return
 	}
 	if !validProjectID.MatchString(req.ProjectID) {
-		http.Error(w, "invalid project_id format", http.StatusBadRequest)
+		writeErr("Invalid project_id. GCP project IDs are 6\u201330 lowercase chars, must start with a letter, and may contain digits and hyphens (e.g. my-gcp-project).")
 		return
 	}
 	if !validRegion.MatchString(req.Region) {
-		http.Error(w, "invalid region format", http.StatusBadRequest)
+		writeErr("Invalid region. Pick one from the dropdown (e.g. us-central1, europe-west10).")
 		return
 	}
 	if !validServiceName.MatchString(req.ServiceName) {
-		http.Error(w, "invalid service_name format", http.StatusBadRequest)
+		writeErr("Invalid service_name. Use 1\u201349 lowercase letters/digits/hyphens, must start with a letter (e.g. cybernetics-sre-agent).")
 		return
 	}
 
