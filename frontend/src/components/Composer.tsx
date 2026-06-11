@@ -631,9 +631,21 @@ export function Composer() {
   function selectTemplate(t: Template) {
     setSelectedTemplate(t)
     setSelectedAdapters(new Set(t.adapters))
-    addMessage({
+    const summary: Message = {
+      id: generateId(),
       role: 'assistant',
       content: `Selected template: **${t.name}**. Default adapters loaded: ${t.adapters.join(', ')}.`,
+      timestamp: new Date(),
+    }
+    setMessages(prev => {
+      const next = [...prev, summary]
+      // Kick the assistant to proactively coach the user about this template.
+      // The synthetic prompt is sent to the model only (not rendered as a
+      // user bubble) so the user sees a guidance reply without having to
+      // type anything first.
+      const synthetic = `The user just selected the **${t.name}** template (${t.description}) with default adapters: ${t.adapters.join(', ')}. In 2\u20133 short sentences, briefly explain what this template is for, then ask whether they'd like to tweak adapters/env vars or go straight to compose.`
+      void handleChat(synthetic, next)
+      return next
     })
   }
 
