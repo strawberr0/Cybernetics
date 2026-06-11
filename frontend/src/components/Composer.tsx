@@ -505,29 +505,46 @@ export function Composer() {
     }
   }
 
-  async function handleDeploy(projectId: string, region: string, serviceName: string) {
+  async function handleDeploy(projectId: string, region: string, serviceName: string, gcpSaJson?: string) {
     setIsTyping(true)
     try {
+      const body: Record<string, unknown> = {
+        project_id: projectId,
+        region,
+        service_name: serviceName || `cybernetics-${selectedTemplate?.name || 'agent'}`,
+        agent_code: agentCode,
+      }
+      if (gcpSaJson && gcpSaJson.trim()) {
+        body.gcp_sa_json = gcpSaJson
+      }
       const r = await fetch('/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          region,
-          service_name: serviceName || `cybernetics-${selectedTemplate?.name || 'agent'}`,
-          agent_code: agentCode,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await r.json()
-      addMessage({
-        role: 'assistant',
-        content: `${data.message}\n\n**Command:**\n\`\`\`bash\n${data.command}\n\`\`\``,
-      })
+      const isLive = data.mode === 'live' && data.status === 'deployed'
+      const header = isLive
+        ? `✅ Deployed to Cloud Run\n\n**Service URL:** ${data.service_url || '(provisioning)'}`
+        : data.message || 'Deploy result:'
+      const cmdBlock = data.command ? `\n\n**Command:**\n\`\`\`bash\n${data.command}\n\`\`\`` : ''
+      const logsBlock = data.logs ? `\n\n<details><summary>Build logs</summary>\n\n\`\`\`\n${data.logs}\n\`\`\`\n</details>` : ''
+      addMessage({ role: 'assistant', content: header + cmdBlock + logsBlock })
     } catch (err: any) {
       addMessage({ role: 'assistant', content: `Deploy failed: ${err.message}` })
     } finally {
       setIsTyping(false)
     }
+  }
+
+  // readFileAsText reads a File from a <input type="file"> picker into a string.
+  async function readFileAsText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(reader.error || new Error('file read failed'))
+      reader.readAsText(file)
+    })
   }
 
   function handleSend() {
@@ -937,17 +954,36 @@ export function Composer() {
                   <input type="text" id="deploy-service" placeholder={`cybernetics-${selectedTemplate?.name || 'agent'}`} className="retro-input w-full px-3 py-2 text-base font-bold" />
                 </div>
               </div>
+
+              <div className="retro-card p-4 space-y-2">
+                <label className="text-xs font-black uppercase tracking-wider block">GCP Service-Account JSON (optional)</label>
+                <p className="text-xs opacity-70 leading-snug">
+                  Drop in a key for a SA with <code>Cloud Run Admin</code> + <code>Cloud Build Editor</code> + <code>Storage Admin</code> + <code>Service Account User</code> roles to <strong>actually deploy</strong>. Leave empty to get the gcloud command back instead. Key is held in request memory only and scrubbed on response.
+                </p>
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  id="deploy-sa-file"
+                  className="retro-input w-full px-3 py-2 text-sm font-bold cursor-pointer"
+                />
+              </div>
+
               <button
-                onClick={() => {
+                onClick={async () => {
                   const p = (document.getElementById('deploy-project') as HTMLInputElement)?.value || ''
                   const r = (document.getElementById('deploy-region') as HTMLSelectElement)?.value || 'us-central1'
                   const s = (document.getElementById('deploy-service') as HTMLInputElement)?.value || ''
+                  const fileInput = document.getElementById('deploy-sa-file') as HTMLInputElement | null
+                  let sa = ''
+                  if (fileInput?.files && fileInput.files[0]) {
+                    try { sa = await readFileAsText(fileInput.files[0]) } catch { sa = '' }
+                  }
                   setActivePanel(null)
-                  handleDeploy(p, r, s)
+                  handleDeploy(p, r, s, sa)
                 }}
                 className="retro-button flex items-center gap-3 px-6 py-3 text-base font-black"
               >
-                <Cloud className="w-6 h-6 text-[#071a7a]" /> Deploy to Cloud Run
+                <Cloud className="w-6 h-6 text-[#071a7a]" /> {`Deploy to Cloud Run`}
               </button>
             </div>
           </div>

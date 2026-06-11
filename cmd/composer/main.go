@@ -9,6 +9,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -271,7 +274,23 @@ type DeployRequest struct {
 	Region      string `json:"region"`
 	ServiceName string `json:"service_name"`
 	AgentCode   string `json:"agent_code"`
+	Dockerfile  string `json:"dockerfile"`
+	// GCPSAJSON is a Google Cloud service-account key JSON. When present, the
+	// backend will run `gcloud run deploy --source .` against the user's project
+	// using this credential, then scrub it from disk. When absent, the endpoint
+	// returns the gcloud command for the user to execute locally (manifest mode).
+	GCPSAJSON string `json:"gcp_sa_json"`
 }
+
+// validProjectID matches the GCP project-ID format: 6–30 chars, lowercase
+// letters/digits/hyphens, must start with a letter, no trailing hyphen.
+var validProjectID = regexp.MustCompile(`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`)
+
+// validRegion matches the Cloud Run region format (e.g. us-central1, asia-northeast3).
+var validRegion = regexp.MustCompile(`^[a-z]+-[a-z0-9]+$`)
+
+// validServiceName matches Cloud Run service-name rules: 1–49 lowercase alnum/hyphen.
+var validServiceName = regexp.MustCompile(`^[a-z](?:[a-z0-9-]{0,47}[a-z0-9])?$`)
 
 type ChatRequest struct {
 	Message   string        `json:"message"`
@@ -434,19 +453,171 @@ func deployAgent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing project_id, region, or service_name", http.StatusBadRequest)
 		return
 	}
+	if !validProjectID.MatchString(req.ProjectID) {
+		http.Error(w, "invalid project_id format", http.StatusBadRequest)
+		return
+	}
+	if !validRegion.MatchString(req.Region) {
+		http.Error(w, "invalid region format", http.StatusBadRequest)
+		return
+	}
+	if !validServiceName.MatchString(req.ServiceName) {
+		http.Error(w, "invalid service_name format", http.StatusBadRequest)
+		return
+	}
 
+	command := fmt.Sprintf(
+		"gcloud run deploy %s --project %s --region %s --source . --allow-unauthenticated",
+		req.ServiceName, req.ProjectID, req.Region,
+	)
+
+	// Manifest mode (no SA JSON provided): return the command for the user to run.
+	if strings.TrimSpace(req.GCPSAJSON) == "" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":     "ready",
+			"mode":       "manifest",
+			"message":    "Agent package generated. Deploy with gcloud or upload a service-account JSON to deploy from this server.",
+			"project_id": req.ProjectID,
+			"region":     req.Region,
+			"service":    req.ServiceName,
+			"command":    command,
+		})
+		return
+	}
+
+	// BYOK live-deploy mode: write SA JSON + agent source to a tmpdir, run
+	// gcloud, scrub the dir on every exit path.
+	result, err := runLiveDeploy(r.Context(), req)
+	if err != nil {
+		slog.Error("live deploy failed", "err", err, "project", req.ProjectID, "region", req.Region, "service", req.ServiceName)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":  "error",
+			"mode":    "live",
+			"message": "deploy failed: " + err.Error(),
+			"command": command,
+		})
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"status":     "ready",
-		"message":    "Agent package generated. Deploy with gcloud or the CLI.",
-		"project_id": req.ProjectID,
-		"region":     req.Region,
-		"service":    req.ServiceName,
-		"command": fmt.Sprintf(
-			"gcloud run deploy %s --project %s --region %s --source . --allow-unauthenticated",
-			req.ServiceName, req.ProjectID, req.Region,
-		),
-	})
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// runLiveDeploy runs `gcloud run deploy --source .` against the user's GCP
+// project using a BYOK service-account JSON. The SA JSON is written to a tmpdir
+// scoped to the request, activated, then scrubbed on every exit path. Returns
+// a structured result map suitable for direct JSON encoding.
+func runLiveDeploy(ctx context.Context, req DeployRequest) (map[string]any, error) {
+	if _, err := exec.LookPath("gcloud"); err != nil {
+		return nil, errors.New("gcloud CLI not installed on server (BYOK live-deploy unavailable)")
+	}
+
+	dir, err := os.MkdirTemp("", "cyb-deploy-*")
+	if err != nil {
+		return nil, fmt.Errorf("mktemp: %w", err)
+	}
+	defer os.RemoveAll(dir)
+
+	// Write source files. Default agent.py / Dockerfile / requirements.txt if absent.
+	agent := req.AgentCode
+	if strings.TrimSpace(agent) == "" {
+		agent = "print('cybernetics agent placeholder')\n"
+	}
+	dockerfile := req.Dockerfile
+	if strings.TrimSpace(dockerfile) == "" {
+		dockerfile = "FROM python:3.11-slim\nWORKDIR /app\nCOPY . .\nRUN pip install --no-cache-dir -r requirements.txt 2>/dev/null || true\nCMD [\"python\", \"agent.py\"]\n"
+	}
+	write := func(name, body string) error {
+		return os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600)
+	}
+	if err := write("agent.py", agent); err != nil {
+		return nil, err
+	}
+	if err := write("Dockerfile", dockerfile); err != nil {
+		return nil, err
+	}
+	if err := write("requirements.txt", "requests\n"); err != nil {
+		return nil, err
+	}
+
+	// Validate + write SA JSON.
+	var saProbe map[string]any
+	if err := json.Unmarshal([]byte(req.GCPSAJSON), &saProbe); err != nil {
+		return nil, fmt.Errorf("gcp_sa_json is not valid JSON: %w", err)
+	}
+	if t, _ := saProbe["type"].(string); t != "service_account" {
+		return nil, errors.New("gcp_sa_json: missing or wrong 'type' field (expected 'service_account')")
+	}
+	saPath := filepath.Join(dir, "sa.json")
+	if err := os.WriteFile(saPath, []byte(req.GCPSAJSON), 0o600); err != nil {
+		return nil, fmt.Errorf("write sa: %w", err)
+	}
+
+	// Run-scoped CLOUDSDK_CONFIG keeps gcloud state in the tmpdir so concurrent
+	// deploys can't trample each other's active accounts.
+	cfgDir := filepath.Join(dir, "gcloud-cfg")
+	if err := os.MkdirAll(cfgDir, 0o700); err != nil {
+		return nil, fmt.Errorf("mkdir cfg: %w", err)
+	}
+	env := append(os.Environ(), "CLOUDSDK_CONFIG="+cfgDir, "CLOUDSDK_CORE_DISABLE_PROMPTS=1")
+
+	dctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	run := func(name string, args ...string) (string, error) {
+		cmd := exec.CommandContext(dctx, name, args...)
+		cmd.Dir = dir
+		cmd.Env = env
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			return out.String(), fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+		}
+		return out.String(), nil
+	}
+
+	logs := strings.Builder{}
+	append1 := func(s string) { logs.WriteString(s); logs.WriteString("\n") }
+
+	if out, err := run("gcloud", "auth", "activate-service-account", "--key-file", saPath); err != nil {
+		append1(out)
+		return nil, fmt.Errorf("activate-service-account: %s", out)
+	}
+
+	deployArgs := []string{
+		"run", "deploy", req.ServiceName,
+		"--project", req.ProjectID,
+		"--region", req.Region,
+		"--source", ".",
+		"--allow-unauthenticated",
+		"--quiet",
+	}
+	out, derr := run("gcloud", deployArgs...)
+	append1(out)
+	if derr != nil {
+		return nil, fmt.Errorf("deploy: %s", out)
+	}
+
+	// Fetch service URL.
+	url, _ := run("gcloud", "run", "services", "describe", req.ServiceName,
+		"--project", req.ProjectID, "--region", req.Region,
+		"--format=value(status.url)")
+	url = strings.TrimSpace(url)
+
+	return map[string]any{
+		"status":      "deployed",
+		"mode":        "live",
+		"message":     "Service deployed to Cloud Run.",
+		"project_id":  req.ProjectID,
+		"region":      req.Region,
+		"service":     req.ServiceName,
+		"service_url": url,
+		"command":     command,
+		"logs":        logs.String(),
+	}, nil
 }
 
 // extractJSONEnvelope returns the JSON object substring from a Gemini reply,
