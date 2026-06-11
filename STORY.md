@@ -118,9 +118,37 @@ approval gates. One control plane. One audit trail. One bearer token.
   the existing TBA + PaymentSplitter integration.
 - Open the catalog to community-contributed adapters with signed manifests.
 
+## Proof it actually works
+
+End-to-end live integration test (`tests/test_mcp_server.py` + harness in
+`/tmp/live_e2e.py`) — **12/12 passing against real APIs**:
+
+- **MCP handshake** — protocol version `2024-11-05`, server identifies as
+  `cybernetics`, advertises `tools` capability.
+- **38 tools across 9 adapters** registered automatically (arize, cloudflare,
+  dynatrace, fivetran, github, **gitlab**, stripe, supabase, vercel).
+- **Real GitLab API call** — `gitlab_get_file` pulled 46 KB of
+  `README.md@master` from `strawberryfield/cybernetics` through the broker.
+- **Live mutation** — `gitlab_create_issue` opened
+  [issue #2](https://gitlab.com/strawberryfield/cybernetics/-/issues/2) in the
+  hackathon repo, tagged `e2e` / `hackathon` / `cybernetics-mcp`.
+- **Gemini 3 selects the right partners autonomously** — `/api/chat` with
+  the prompt *"use gitlab and google-cloud-run to ship a fix from a Cloud
+  Logging alert"* returns `action: "compose"` with
+  `adapters: ["gitlab", "google-cloud-run", "google-observability"]`. No
+  prompt-engineering tricks; the model reads the live adapter catalog and
+  picks the GitLab-track narrative on its own.
+
+While building the e2e harness we caught and root-caused **5 real bugs** in
+the MCP server (stdout-corrupting logger, missing `auto_discover()` call,
+two field-name mismatches between server and registry, and unserialised
+`ToolResult` dataclasses). All shipped in commit `a2f2f48`.
+
 ## Links
 
-- **Repo:** https://github.com/strawberryfield/cybernetics (AGPL-3.0)
+- **Repo:** https://gitlab.com/strawberryfield/cybernetics (AGPL-3.0)
+- **GitHub mirror:** https://github.com/strawberryfields/Cybernetics
+- **Live demo issue:** https://gitlab.com/strawberryfield/cybernetics/-/issues/2
 - **Live composer:** https://cybernetics.sh
 - **Docs:** `docs/THREAT_MODEL.md`, `docs/CONTROLS_NIST_800_53.md`
 - **Track:** GitLab
