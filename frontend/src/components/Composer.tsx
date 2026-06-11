@@ -144,6 +144,62 @@ const envMap: Record<string, string[]> = {
   vercel: ['VERCEL_TOKEN'],
 }
 
+// Google Cloud Run regions (current as of 2026). Grouped for readable UX.
+const CLOUD_RUN_REGIONS: { group: string; regions: { id: string; label: string }[] }[] = [
+  { group: 'Africa',        regions: [
+    { id: 'africa-south1',         label: 'africa-south1 (Johannesburg)' },
+  ]},
+  { group: 'Americas',      regions: [
+    { id: 'northamerica-northeast1', label: 'northamerica-northeast1 (Montréal)' },
+    { id: 'northamerica-northeast2', label: 'northamerica-northeast2 (Toronto)' },
+    { id: 'northamerica-south1',     label: 'northamerica-south1 (Mexico)' },
+    { id: 'us-central1',           label: 'us-central1 (Iowa)' },
+    { id: 'us-east1',              label: 'us-east1 (South Carolina)' },
+    { id: 'us-east4',              label: 'us-east4 (N. Virginia)' },
+    { id: 'us-east5',              label: 'us-east5 (Columbus)' },
+    { id: 'us-south1',             label: 'us-south1 (Dallas)' },
+    { id: 'us-west1',              label: 'us-west1 (Oregon)' },
+    { id: 'us-west2',              label: 'us-west2 (Los Angeles)' },
+    { id: 'us-west3',              label: 'us-west3 (Salt Lake City)' },
+    { id: 'us-west4',              label: 'us-west4 (Las Vegas)' },
+    { id: 'southamerica-east1',    label: 'southamerica-east1 (São Paulo)' },
+    { id: 'southamerica-west1',    label: 'southamerica-west1 (Santiago)' },
+  ]},
+  { group: 'Europe',        regions: [
+    { id: 'europe-central2',       label: 'europe-central2 (Warsaw)' },
+    { id: 'europe-north1',         label: 'europe-north1 (Finland)' },
+    { id: 'europe-north2',         label: 'europe-north2 (Stockholm)' },
+    { id: 'europe-southwest1',     label: 'europe-southwest1 (Madrid)' },
+    { id: 'europe-west1',          label: 'europe-west1 (Belgium)' },
+    { id: 'europe-west2',          label: 'europe-west2 (London)' },
+    { id: 'europe-west3',          label: 'europe-west3 (Frankfurt)' },
+    { id: 'europe-west4',          label: 'europe-west4 (Netherlands)' },
+    { id: 'europe-west6',          label: 'europe-west6 (Zürich)' },
+    { id: 'europe-west8',          label: 'europe-west8 (Milan)' },
+    { id: 'europe-west9',          label: 'europe-west9 (Paris)' },
+    { id: 'europe-west10',         label: 'europe-west10 (Berlin)' },
+    { id: 'europe-west12',         label: 'europe-west12 (Turin)' },
+  ]},
+  { group: 'Middle East',   regions: [
+    { id: 'me-central1',           label: 'me-central1 (Doha)' },
+    { id: 'me-central2',           label: 'me-central2 (Dammam)' },
+    { id: 'me-west1',              label: 'me-west1 (Tel Aviv)' },
+  ]},
+  { group: 'Asia Pacific',  regions: [
+    { id: 'asia-east1',            label: 'asia-east1 (Taiwan)' },
+    { id: 'asia-east2',            label: 'asia-east2 (Hong Kong)' },
+    { id: 'asia-northeast1',       label: 'asia-northeast1 (Tokyo)' },
+    { id: 'asia-northeast2',       label: 'asia-northeast2 (Osaka)' },
+    { id: 'asia-northeast3',       label: 'asia-northeast3 (Seoul)' },
+    { id: 'asia-south1',           label: 'asia-south1 (Mumbai)' },
+    { id: 'asia-south2',           label: 'asia-south2 (Delhi)' },
+    { id: 'asia-southeast1',       label: 'asia-southeast1 (Singapore)' },
+    { id: 'asia-southeast2',       label: 'asia-southeast2 (Jakarta)' },
+    { id: 'australia-southeast1',  label: 'australia-southeast1 (Sydney)' },
+    { id: 'australia-southeast2',  label: 'australia-southeast2 (Melbourne)' },
+  ]},
+]
+
 function generateId() {
   return Math.random().toString(36).slice(2, 9)
 }
@@ -641,21 +697,23 @@ export function Composer() {
       return (
         <div className="space-y-3 mt-3">
           <div className="grid grid-cols-1 gap-2">
-            <input type="text" placeholder="GCP Project ID" className="retro-input px-3 py-2 text-sm"
-              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                if (e.key === 'Enter') {
-                  const inputs = (e.currentTarget.parentElement?.querySelectorAll('input') as NodeListOf<HTMLInputElement>)
-                  handleDeploy(inputs[0].value, inputs[1].value || 'us-central1', inputs[2].value)
-                }
-              }}
-            />
-            <input type="text" placeholder="Region (default: us-central1)" defaultValue="us-central1" className="retro-input px-3 py-2 text-sm" />
-            <input type="text" placeholder="Service name" className="retro-input px-3 py-2 text-sm" />
+            <input type="text" placeholder="GCP Project ID" className="retro-input px-3 py-2 text-sm deploy-project" />
+            <select defaultValue="us-central1" className="retro-input px-3 py-2 text-sm deploy-region">
+              {CLOUD_RUN_REGIONS.map(g => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.regions.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+            <input type="text" placeholder="Service name" className="retro-input px-3 py-2 text-sm deploy-service" />
           </div>
           <button
             onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-              const inputs = (e.currentTarget.parentElement?.querySelectorAll('input') as NodeListOf<HTMLInputElement>)
-              handleDeploy(inputs[0].value, inputs[1].value || 'us-central1', inputs[2].value)
+              const parent = e.currentTarget.parentElement
+              const project = (parent?.querySelector('.deploy-project') as HTMLInputElement)?.value || ''
+              const region  = (parent?.querySelector('.deploy-region')  as HTMLSelectElement)?.value || 'us-central1'
+              const svc     = (parent?.querySelector('.deploy-service') as HTMLInputElement)?.value || ''
+              handleDeploy(project, region, svc)
             }}
             className="retro-button flex items-center gap-2 px-4 py-2 text-sm font-black"
           >
@@ -866,7 +924,13 @@ export function Composer() {
                 </div>
                 <div>
                   <label className="text-xs font-black uppercase tracking-wider block mb-1">Region</label>
-                  <input type="text" id="deploy-region" defaultValue="us-central1" placeholder="us-central1" className="retro-input w-full px-3 py-2 text-base font-bold" />
+                  <select id="deploy-region" defaultValue="us-central1" className="retro-input w-full px-3 py-2 text-base font-bold">
+                    {CLOUD_RUN_REGIONS.map(g => (
+                      <optgroup key={g.group} label={g.group}>
+                        {g.regions.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-xs font-black uppercase tracking-wider block mb-1">Service Name</label>
@@ -876,7 +940,7 @@ export function Composer() {
               <button
                 onClick={() => {
                   const p = (document.getElementById('deploy-project') as HTMLInputElement)?.value || ''
-                  const r = (document.getElementById('deploy-region') as HTMLInputElement)?.value || 'us-central1'
+                  const r = (document.getElementById('deploy-region') as HTMLSelectElement)?.value || 'us-central1'
                   const s = (document.getElementById('deploy-service') as HTMLInputElement)?.value || ''
                   setActivePanel(null)
                   handleDeploy(p, r, s)
