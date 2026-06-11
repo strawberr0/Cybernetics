@@ -153,7 +153,7 @@ export function Composer() {
     {
       id: generateId(),
       role: 'system',
-      content: 'Welcome to Cybernetics Composer. Type a message to chat with Gemini, or try:\n• "show templates" — browse agent templates\n• "use datadog and slack" — pick adapters\n• "set DATADOG_API_KEY=xxx" — configure keys\n• "compose" — generate agent code\n• "deploy to us-central1" — deploy to Cloud Run',
+      content: 'Welcome to Cybernetics Composer. Type a message to chat with Gemini 3, or try:\n• "show templates" — browse agent templates\n• "use gitlab and google-cloud-run" — pick adapters\n• "set GITLAB_TOKEN=xxx" — configure keys\n• "compose" — generate a Gemini-built agent\n• "deploy to us-central1" — ship to Cloud Run',
       timestamp: new Date(),
     },
   ])
@@ -232,7 +232,7 @@ export function Composer() {
       {
         id: generateId(),
         role: 'system',
-        content: 'Welcome to Cybernetics Composer. Type a message to chat with Gemini, or try:\n• "show templates" — browse agent templates\n• "use datadog and slack" — pick adapters\n• "set DATADOG_API_KEY=xxx" — configure keys\n• "compose" — generate agent code\n• "deploy to us-central1" — deploy to Cloud Run',
+        content: 'Welcome to Cybernetics Composer. Type a message to chat with Gemini 3, or try:\n• "show templates" — browse agent templates\n• "use gitlab and google-cloud-run" — pick adapters\n• "set GITLAB_TOKEN=xxx" — configure keys\n• "compose" — generate a Gemini-built agent\n• "deploy to us-central1" — ship to Cloud Run',
         timestamp: new Date(),
       },
     ])
@@ -1030,14 +1030,22 @@ export function Composer() {
                     </button>
                   </div>
                   <div className="my-3 border-t-2 border-dashed border-[#55504a]" />
-                  <p className="mb-3 text-base font-bold">Type a message to chat with Gemini, or try:</p>
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wider">
+                    <span className="border-2 border-[#5d5850] bg-[#fc6d26] px-2 py-1 text-white shadow-[2px_2px_0_rgba(0,0,0,0.35)]">GitLab Track</span>
+                    <span className="border-2 border-[#5d5850] bg-[#1a73e8] px-2 py-1 text-white shadow-[2px_2px_0_rgba(0,0,0,0.35)]">Gemini 3</span>
+                    <span className="border-2 border-[#5d5850] bg-[#0f9d58] px-2 py-1 text-white shadow-[2px_2px_0_rgba(0,0,0,0.35)]">Google Cloud Run MCP</span>
+                    <span className="border-2 border-[#5d5850] bg-[#4285f4] px-2 py-1 text-white shadow-[2px_2px_0_rgba(0,0,0,0.35)]">Google Observability MCP</span>
+                  </div>
+                  <p className="mb-3 text-base font-bold">
+                    A composable meta-MCP that turns <span className="text-[#fc6d26]">GitLab</span> + <span className="text-[#1a73e8]">Google Cloud</span> MCP servers into one auditable agent control plane. Try:
+                  </p>
                   <div className="space-y-2 text-base font-bold">
                     {[
                       ['show templates', 'browse agent templates'],
-                      ['use datadog and slack', 'pick adapters'],
-                      ['set DATADOG_API_KEY=xxx', 'configure keys'],
-                      ['compose', 'generate agent code'],
-                      ['deploy to us-central1', 'deploy to Cloud Run'],
+                      ['use gitlab and google-cloud-run', 'GitLab MR + Cloud Run deploy'],
+                      ['set GITLAB_TOKEN=xxx', 'configure keys'],
+                      ['compose', 'Gemini 3 generates the agent'],
+                      ['deploy to us-central1', 'ship to Cloud Run'],
                     ].map(([cmd, desc]) => (
                       <div key={cmd} className="flex gap-3">
                         <span className="mt-2 h-3 w-3 bg-[#09217f]" />

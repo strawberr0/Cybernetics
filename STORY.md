@@ -31,10 +31,12 @@ Google Cloud agent stacks. It does three things:
    prebuilt multi-step missions that demonstrate "agent, not chatbot": plan,
    call tools, observe, replan, finish.
 
-For the **GitLab partner track**, our flagship demo is an SRE agent that
-ingests a Dynatrace alert, pulls related logs from Elastic, opens a GitLab MR
-with the proposed fix, runs the pipeline, and posts the verdict back to
-Slack — entirely under human approval gates.
+**Track: GitLab.** Our flagship demo is a DevSecOps agent that ingests a
+signal from the **Google Observability MCP** (Cloud Logging + Error
+Reporting), uses **Gemini 3** to synthesize a root-cause patch, opens a
+**GitLab MR** with the fix, runs the GitLab pipeline, and on green deploys
+the patched service via the **Google Cloud Run MCP** — entirely under human
+approval gates. One control plane. One audit trail. One bearer token.
 
 ## How we built it
 
