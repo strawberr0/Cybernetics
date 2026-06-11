@@ -888,11 +888,7 @@ export function Composer() {
                   className="retro-input w-full px-3 py-2 text-base font-bold"
                 />
                 <p className="text-xs font-bold opacity-70 leading-snug">
-                  Stored locally in your browser; sent with each chat/compose request. <strong>This always overrides any server-side key.</strong>{' '}
-                  {serverConfig?.server_has_gemini_key
-                    ? <><span className="inline-block h-2 w-2 bg-[#39e94c] mr-1 align-middle" />Server fallback is configured — leave this empty to use it.</>
-                    : <><span className="inline-block h-2 w-2 bg-[#e9b339] mr-1 align-middle" />No server fallback — a key here is required for chat/compose.</>
-                  }
+                  Stored locally in your browser. Sent with every chat / compose request. Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline font-black">aistudio.google.com/apikey</a>.
                 </p>
               </section>
               <section className="space-y-3">
