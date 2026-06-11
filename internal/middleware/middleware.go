@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -141,8 +142,32 @@ func MaxBody(limit int64) func(http.Handler) http.Handler {
 }
 
 // SecurityHeaders sets sensible defaults: no sniff, no embed, strict referrer,
-// HSTS, and a conservative CSP. Tune CSP per deployment.
+// HSTS, and a conservative Content-Security-Policy. Tune CSP per deployment
+// via the CSP env var (any value overrides the default).
 func SecurityHeaders(next http.Handler) http.Handler {
+	csp := strings.TrimSpace(os.Getenv("CSP"))
+	if csp == "" {
+		// Default CSP: SPA-friendly but XSS-resistant.
+		// - default-src 'self' blocks third-party loads.
+		// - script-src 'self' rejects inline <script> and eval(); React app
+		//   ships a single bundled JS file so this is sufficient.
+		// - style-src allows 'unsafe-inline' because Tailwind / inline style
+		//   props are common in React; safe given script-src is locked down.
+		// - connect-src allows fetches to the same origin and the Gemini API
+		//   directly (the BYOK path the frontend uses for /api/chat).
+		// - frame-ancestors 'none' duplicates X-Frame-Options:DENY for browsers
+		//   that prefer CSP.
+		csp = "default-src 'self'; " +
+			"script-src 'self'; " +
+			"style-src 'self' 'unsafe-inline'; " +
+			"img-src 'self' data: blob:; " +
+			"font-src 'self' data:; " +
+			"connect-src 'self' https://generativelanguage.googleapis.com; " +
+			"frame-ancestors 'none'; " +
+			"form-action 'self'; " +
+			"base-uri 'self'; " +
+			"object-src 'none'"
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
@@ -150,7 +175,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		// API responses default to JSON; relax for HTML pages by setting upstream.
+		h.Set("Content-Security-Policy", csp)
 		next.ServeHTTP(w, r)
 	})
 }
