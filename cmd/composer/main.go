@@ -607,6 +607,11 @@ func runLiveDeploy(ctx context.Context, req DeployRequest) (map[string]any, erro
 		"--format=value(status.url)")
 	url = strings.TrimSpace(url)
 
+	command := fmt.Sprintf(
+		"gcloud run deploy %s --project %s --region %s --source . --allow-unauthenticated",
+		req.ServiceName, req.ProjectID, req.Region,
+	)
+
 	return map[string]any{
 		"status":      "deployed",
 		"mode":        "live",
