@@ -878,29 +878,23 @@ export function Composer() {
           {panelHeader(<Settings className="w-8 h-8 text-[#58ff3e]" />, 'Settings', 'Preferences & API keys')}
           <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
             <div className="max-w-[820px] space-y-6">
-              {serverConfig?.server_has_gemini_key ? (
-                <section className="space-y-2">
-                  <h3 className="text-sm font-black uppercase tracking-wider">Gemini API Key</h3>
-                  <div className="border-2 border-[#5d5850] bg-[#dedad3] p-4 shadow-[3px_3px_0_rgba(0,0,0,0.25)]">
-                    <p className="text-sm font-bold">
-                      <span className="inline-block h-3 w-3 bg-[#39e94c] mr-2 align-middle" />
-                      Server has a managed Gemini key. Client-side keys are disabled in this deployment.
-                    </p>
-                  </div>
-                </section>
-              ) : (
-                <section className="space-y-3">
-                  <h3 className="text-sm font-black uppercase tracking-wider">Gemini API Key</h3>
-                  <input
-                    type="text"
-                    value={geminiKey}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setGeminiKey(e.target.value); persistSettings({ geminiKey: e.target.value }) }}
-                    placeholder="AIzaSy…"
-                    className="retro-input w-full px-3 py-2 text-base font-bold"
-                  />
-                  <p className="text-xs font-bold opacity-70">Stored locally in your browser. Used as fallback when the server has no GEMINI_API_KEY. <strong>Not recommended for production.</strong></p>
-                </section>
-              )}
+              <section className="space-y-3">
+                <h3 className="text-sm font-black uppercase tracking-wider">Gemini API Key</h3>
+                <input
+                  type="text"
+                  value={geminiKey}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setGeminiKey(e.target.value); persistSettings({ geminiKey: e.target.value }) }}
+                  placeholder="AIzaSy…"
+                  className="retro-input w-full px-3 py-2 text-base font-bold"
+                />
+                <p className="text-xs font-bold opacity-70 leading-snug">
+                  Stored locally in your browser; sent with each chat/compose request. <strong>This always overrides any server-side key.</strong>{' '}
+                  {serverConfig?.server_has_gemini_key
+                    ? <><span className="inline-block h-2 w-2 bg-[#39e94c] mr-1 align-middle" />Server fallback is configured — leave this empty to use it.</>
+                    : <><span className="inline-block h-2 w-2 bg-[#e9b339] mr-1 align-middle" />No server fallback — a key here is required for chat/compose.</>
+                  }
+                </p>
+              </section>
               <section className="space-y-3">
                 <h3 className="text-sm font-black uppercase tracking-wider">GCP Service-Account JSON</h3>
                 <p className="text-xs font-bold opacity-70 leading-snug">
