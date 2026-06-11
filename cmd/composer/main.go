@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -16,6 +17,34 @@ import (
 	"github.com/strawberryfield/cybernetics/internal/middleware"
 	"github.com/strawberryfield/cybernetics/internal/oidc"
 )
+
+
+// requirePOST writes 405 with an Allow header and returns false if the
+// request is not a POST. Mutating /api/* routes call this first.
+func requirePOST(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method == http.MethodPost {
+		return true
+	}
+	w.Header().Set("Allow", "POST")
+	http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	return false
+}
+
+// decodeJSONBody decodes r.Body into dst. If the body exceeds MaxBytesReader's
+// limit the response is 413 Payload Too Large; on parse errors it's 400.
+// Returns false if the response has been written.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			http.Error(w, "Payload Too Large", http.StatusRequestEntityTooLarge)
+			return false
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return false
+	}
+	return true
+}
 
 // oidcAdapter bridges *oidc.Verifier to middleware.TokenVerifier (which
 // returns `any` to avoid an import cycle in the middleware package).
@@ -339,9 +368,11 @@ func listTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 func composeAgent(w http.ResponseWriter, r *http.Request) {
+	if !requirePOST(w, r) {
+		return
+	}
 	var req ComposeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if !decodeJSONBody(w, r, &req) {
 		return
 	}
 
@@ -391,9 +422,11 @@ CMD ["python", "-m", "agent"]
 }
 
 func deployAgent(w http.ResponseWriter, r *http.Request) {
+	if !requirePOST(w, r) {
+		return
+	}
 	var req DeployRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if !decodeJSONBody(w, r, &req) {
 		return
 	}
 
@@ -473,9 +506,11 @@ func extractJSONEnvelope(text string) string {
 }
 
 func chatAgent(w http.ResponseWriter, r *http.Request) {
+	if !requirePOST(w, r) {
+		return
+	}
 	var req ChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if !decodeJSONBody(w, r, &req) {
 		return
 	}
 
