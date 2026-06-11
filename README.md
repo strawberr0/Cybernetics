@@ -10,6 +10,14 @@
 </p>
 
 <p align="center">
+  <a href="https://cybernetics.sh"><strong>▶ Live Demo: cybernetics.sh</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://gitlab.com/strawberryfield/cybernetics">GitLab</a>
+  &nbsp;·&nbsp;
+  <a href="STORY.md">Project Story</a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/status-production--ready-emerald?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PGNpcmNsZSBjeD0iOCIgY3k9IjgiIHI9IjgiIGZpbGw9IiMxMGI5ODEiLz48L3N2Zz4=" alt="Status"/>
   <img src="https://img.shields.io/badge/Go-1.22-blue?style=flat-square&logo=go&logoColor=white" alt="Go"/>
   <img src="https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python&logoColor=white" alt="Python"/>

@@ -1,5 +1,8 @@
 # Cybernetics — Composable Meta-MCP for Google Cloud Agents
 
+> **▶ Live demo:** https://cybernetics.sh
+> **Repo:** https://gitlab.com/strawberryfield/cybernetics
+
 ## Inspiration
 
 Every team we talked to had the same problem: their agents could *talk* about
