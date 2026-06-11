@@ -12,7 +12,7 @@ def configure_logging(log_level: str = "INFO") -> None:
 
     logging.basicConfig(
         format="%(message)s",
-        stream=sys.stdout,
+        stream=sys.stderr,
         level=level,
     )
 
