@@ -14,7 +14,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Go server build (static, stripped, reproducible)
-FROM golang:1.22-alpine AS server-builder
+FROM golang:1.23-alpine AS server-builder
 ARG VERSION=dev
 ARG COMMIT=unknown
 WORKDIR /src
