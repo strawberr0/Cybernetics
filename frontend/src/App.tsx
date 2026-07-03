@@ -7,7 +7,7 @@ export default function App() {
   const [page, setPage] = useState<'composer' | 'mcp'>('composer')
 
   return (
-    <div className="min-h-screen bg-[#d8d4cd] text-[#070b16]">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a] text-[#07112e] dark:text-gray-200">
       <Header page={page} onNavigate={setPage} />
       <main className="p-0">
         {page === 'composer' && <Composer />}

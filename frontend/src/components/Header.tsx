@@ -1,4 +1,6 @@
-import { Bot, Github, Server, Terminal } from 'lucide-react'
+import { useState } from 'react'
+import { Terminal, Server } from 'lucide-react'
+import { ServiceTitle, UTCClock, ServiceSwitcher, NavPageButton } from './ArqonNav'
 
 interface HeaderProps {
   page: 'composer' | 'mcp'
@@ -6,45 +8,69 @@ interface HeaderProps {
 }
 
 export function Header({ page, onNavigate }: HeaderProps) {
+  const [showServiceSwitcher, setShowServiceSwitcher] = useState(false)
+
   return (
-    <header className="retro-chrome border-b-2 border-[#6e6a63]">
-      <div className="h-[76px] px-6 flex items-center justify-between">
-        <div className="flex items-center gap-8 h-full">
-          <div className="flex items-center gap-4 pr-8 h-full border-r border-[#9b958c]">
-            <Bot className="w-10 h-10 text-[#061a7a]" strokeWidth={2.25} />
-            <h1 className="text-3xl font-black tracking-tight text-[#07112e]">Cybernetics</h1>
+    <>
+      <header className="sticky top-0 z-50 bg-white dark:bg-[#0a0a0a] border-b border-gray-200 dark:border-gray-800 backdrop-blur-md">
+        <div className="flex items-center justify-between px-4 py-2 h-[56px]">
+          {/* Left: Service Title (clickable to open switcher) + Nav */}
+          <div className="flex items-center gap-6">
+            <ServiceTitle
+              serviceName="agent"
+              faviconUrl="/favicon.png"
+              onClick={() => setShowServiceSwitcher(true)}
+            />
+            <nav className="hidden md:flex items-center gap-2">
+              <NavPageButton
+                active={page === 'composer'}
+                onClick={() => onNavigate('composer')}
+                icon={<Terminal className="w-4 h-4" />}
+                label="Composer"
+              />
+              <NavPageButton
+                active={page === 'mcp'}
+                onClick={() => onNavigate('mcp')}
+                icon={<Server className="w-4 h-4" />}
+                label="MCP"
+              />
+            </nav>
           </div>
-          <nav className="hidden md:flex items-center gap-3">
+
+          {/* Center: UTC Clock */}
+          <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
+            <UTCClock className="text-sm text-gray-500 dark:text-gray-400" />
+          </div>
+
+          {/* Right: Mobile nav (simplified) */}
+          <div className="md:hidden flex items-center gap-2">
             <button
               onClick={() => onNavigate('composer')}
-              className={`retro-button flex items-center gap-3 px-5 py-3 text-xl font-bold ${
-                page === 'composer' ? 'retro-button-active' : ''
-              }`}
+              className={`p-2 rounded ${page === 'composer' ? 'bg-[#07112e] text-white' : 'text-[#07112e]'}`}
             >
-              <Terminal className="w-6 h-6 text-[#4cff3f]" />
-              Composer
+              <Terminal className="w-5 h-5" />
             </button>
             <button
               onClick={() => onNavigate('mcp')}
-              className={`retro-button flex items-center gap-3 px-5 py-3 text-xl font-bold ${
-                page === 'mcp' ? 'retro-button-active' : ''
-              }`}
+              className={`p-2 rounded ${page === 'mcp' ? 'bg-[#07112e] text-white' : 'text-[#07112e]'}`}
             >
-              <Server className="w-6 h-6" />
-              MCP
+              <Server className="w-5 h-5" />
             </button>
-          </nav>
+          </div>
         </div>
-        <a
-          href="https://github.com/strawberr0/cybernetics"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 text-lg font-bold text-[#071a7a] underline decoration-2 underline-offset-4 hover:text-[#0b2db3]"
-        >
-          <Github className="w-8 h-8 text-black" />
-          <span className="hidden sm:inline">GitHub</span>
-        </a>
-      </div>
-    </header>
+
+        {/* Mobile UTC Clock */}
+        <div className="md:hidden flex justify-center pb-2">
+          <UTCClock className="text-sm text-gray-500" />
+        </div>
+      </header>
+
+      {/* Service Switcher Modal */}
+      <ServiceSwitcher
+        isOpen={showServiceSwitcher}
+        onClose={() => setShowServiceSwitcher(false)}
+        currentService="AGENT"
+      />
+    </>
   )
 }
