@@ -673,6 +673,14 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthz)
 	mux.HandleFunc("/readyz", readyz)
+	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"healthy","service":"agents-backend"}`))
+	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"healthy","service":"agents-backend"}`))
+	})
 
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/api/templates", listTemplates)
@@ -685,7 +693,7 @@ func main() {
 	rl := middleware.NewRateLimiter(rlBurst, rlRate)
 
 	// Auth precedence: OIDC > Bearer > none (dev).
-	authMW := middleware.BearerAuth(authToken, "/healthz", "/readyz")
+	authMW := middleware.BearerAuth(authToken, "/healthz", "/readyz", "/api/health", "/health")
 	if oidcMW != nil {
 		authMW = oidcMW
 	}
