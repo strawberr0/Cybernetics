@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Terminal, Server } from 'lucide-react'
 import { ServiceTitle, UTCClock, ServiceSwitcher, NavPageButton } from './ArqonNav'
+import { UserAccountButton } from '@arqon/global-ux'
 
 interface HeaderProps {
   page: 'composer' | 'mcp'
@@ -42,20 +43,28 @@ export function Header({ page, onNavigate }: HeaderProps) {
             <UTCClock className="text-sm text-gray-500 dark:text-gray-400" />
           </div>
 
-          {/* Right: Mobile nav (simplified) */}
-          <div className="md:hidden flex items-center gap-2">
-            <button
-              onClick={() => onNavigate('composer')}
-              className={`p-2 rounded ${page === 'composer' ? 'bg-[#07112e] text-white' : 'text-[#07112e]'}`}
-            >
-              <Terminal className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onNavigate('mcp')}
-              className={`p-2 rounded ${page === 'mcp' ? 'bg-[#07112e] text-white' : 'text-[#07112e]'}`}
-            >
-              <Server className="w-5 h-5" />
-            </button>
+          {/* Right: UserAccountButton + Mobile nav */}
+          <div className="flex items-center gap-2">
+            <UserAccountButton
+              accountPortalUrl="http://localhost:4000"
+              showTierBadge={true}
+              showUpgradePrompt={true}
+              serviceName="Arqon"
+            />
+            <div className="md:hidden flex items-center gap-2">
+              <button
+                onClick={() => onNavigate('composer')}
+                className={`p-2 rounded ${page === 'composer' ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : 'text-gray-600 dark:text-gray-400'}`}
+              >
+                <Terminal className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => onNavigate('mcp')}
+                className={`p-2 rounded ${page === 'mcp' ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : 'text-gray-600 dark:text-gray-400'}`}
+              >
+                <Server className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 

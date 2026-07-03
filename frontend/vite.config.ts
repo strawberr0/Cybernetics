@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ['@arqon/global-ux'],
+  },
   server: {
     port: parseInt(process.env.PORT || '4000', 10),
     host: true,
